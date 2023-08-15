@@ -1,0 +1,32 @@
+<!-- 
+    Example of hello world application that can be
+    compiled for any of 3 targets by an '-s' command
+    line parameter:
+        pyMake.py -c -s target:[x86,rpi,w32]
+
+    This example shows how a library from a separate
+    project is linked to create the executable.
+    Including the -p option on the command line will
+    cause the LibTime project to be compiled before
+    linking.
+-->
+<project artifact="hello" type="executable">
+    <include if="{target}==x86">../pyIncX86LinuxNative.xml</include>
+    <include if="{target}==rpi">../pyIncArmLinuxGnueabihf.xml</include>
+    <include if="{target}==w32">../pyIncMingw32.xml</include>
+    <extension if="{target}==w32">exe</extension>
+    <includes>
+        <path>../LibTime/src</path>
+        <path>src</path>
+    </includes>
+    <objects>
+        <obj>../LibTime/{config}/libmstime.a</obj>
+        <obj>-lpthread</obj>
+    </objects>
+    <prebuilds>
+        <project path="../LibTime"/>
+    </prebuilds>
+    <sources>
+        <file path="src/*"/>
+    </sources>
+</project>

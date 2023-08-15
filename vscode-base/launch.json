@@ -1,0 +1,69 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    /*
+     * These launch configurations are for debugging either the HelloWorldThread
+     * project, or pyMake.py itself.
+     * Note that vscode must be opened in the workspace folder for the paths
+     * to work properly.
+     */
+    "version": "0.2.0",
+    "configurations": [
+        {
+            /*
+             * This launchconfiguration is for debugging the Debug version of the
+             * HelloWorldThread application.
+             * hello.cpp should be opened in a tab, "RUN AND DEBUG" should be selected
+             * in the left column, and this launch configuration should be selected in the
+             * combo box.
+             */
+            "name": "Debug HelloWorldThread executable",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/HelloWorldThread/Debug/hello",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            /*
+             * This launch configuration is for debugging pyMake
+             * as it processes the pyMake.xml project configuration
+             * in /workspace/HelloWorldThread.
+             * pyMake.py should be opened in a tab, "RUN AND DEBUG" should be selected
+             * in the left column, and this launch configuration should be selected in the
+             * combo box.
+             */
+            "name": "Debug HelloWorldThread pyMake.xml",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+
+            // Debug compilation of one file.
+            // "args": ["-c","-s target:x86","-o hello.cpp"],
+
+            // Debug compilation of complete project.
+            "args": ["-c","-s target:x86","-p"],
+
+            "cwd": "${workspaceFolder}/HelloWorldThread"
+        }
+    ]
+}

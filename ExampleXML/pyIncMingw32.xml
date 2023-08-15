@@ -1,0 +1,31 @@
+<!-- 
+    Example toolchain and Debug/Release configuraion for a
+    statically linked (standalone) 32-bit WIN32 console application.
+    This 'pyInc' file would be added to a <project> file using
+    the <include> tag.
+-->
+<pyInc>
+    <toolchain name="i686-w64-mingw32">
+        <compilerPath>/usr/bin</compilerPath>
+        <compilerPrefix>i686-w64-mingw32-</compilerPrefix>
+        <ccflag>-D_POSIX_THREADS</ccflag>
+        <ccflag>-D_GNU_SOURCE</ccflag>
+        <ccflag>-D_WIN32</ccflag>
+        <ccflag>-D_WIN32_WINNT=0x0601</ccflag>
+        <ccflag>-m32</ccflag>   <!-- 32 bit compile -->
+        <lflag>-m32</lflag>     <!-- 32 bit link -->
+        <lflag>-static</lflag>
+        <lflag>-static-libgcc</lflag>
+        <lflag>-static-libstdc++</lflag>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>i686-w64-mingw32</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>i686-w64-mingw32</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+</pyInc>

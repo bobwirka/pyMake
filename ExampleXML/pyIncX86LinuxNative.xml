@@ -1,0 +1,23 @@
+<!-- 
+    Example toolchain and Debug/Release configuraion for a
+    native x86 project.
+    This 'pyInc' file would be added to a <project> file using
+    the <include> tag.
+-->
+<pyInc>
+    <toolchain name="native">
+        <compilerPath>/usr/bin</compilerPath>
+        <cppflag>-std=c++98</cppflag>
+        <ccflag>-D__UNIX__</ccflag>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>native</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>native</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+</pyInc>

@@ -1,0 +1,21 @@
+<!-- 
+    Raspberry Pi compiler toolchain and onfigurations.
+    Note that the compiler has been downloaded to a non-standard location.
+    If installed via 'apt', the compiler would most likely be located in '/usr/bin'.
+-->
+<pyInc>
+    <toolchain name="arm-linux-gnueabihf">
+        <compilerPath>/opt/compilers/rpi/arm-linux-gnueabihf-8.3/bin</compilerPath>
+        <compilerPrefix>arm-linux-gnueabihf-</compilerPrefix>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>arm-linux-gnueabihf</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>arm-linux-gnueabihf</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+</pyInc>

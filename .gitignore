@@ -1,0 +1,49 @@
+# Ignored folders.
+RemoteSystemsTempFiles/
+eraseme/
+Eraseme/
+eraseme*
+
+# Tar & zip files (but not symlinks or metadata).
+*.tar.gz
+*.tgz
+*.zip
+
+# Saved 'diff' files.
+*.c.orig
+*.h.orig
+*.cpp.orig
+*.ts.orig
+
+# Eclipse data & generated folders.
+.settings
+.metadata
+
+# Generated debug & release folders.
+Debug*/
+Release*/
+
+# Webstorm and PyCharm workspaces.
+.idea/
+
+# Eclipse temporary projects
+Z-*
+
+# Compiled artifacts.
+*.hex
+*.lst
+*.map
+*.o
+*.elf
+*.bin
+
+# Prerequisites
+*.d
+
+# Libraries
+*.lib
+*.a
+
+# Things we need to keep.
+!EclipseWorkspaceMetadata.tgz
+

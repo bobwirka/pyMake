@@ -1,0 +1,22 @@
+<!-- 
+    Native x86 compiler toolchain and onfigurations.
+    Toolchain can be installed with 'apt'.
+    Recommended to install gcc and g++ multilib.
+-->
+<pyInc>
+    <toolchain name="native">
+        <compilerPath>/usr/bin</compilerPath>
+        <cppflag>-std=c++98</cppflag>
+        <ccflag>-D__UNIX__</ccflag>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>native</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>native</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+</pyInc>

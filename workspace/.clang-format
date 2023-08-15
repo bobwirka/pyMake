@@ -1,0 +1,39 @@
+---
+BasedOnStyle: WebKit
+BinPackParameters: false
+AlignEscapedNewlines: Left
+PointerAlignment: Right
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Linux
+BreakBeforeBinaryOperators: None
+KeepEmptyLinesAtTheStartOfBlocks: false
+PenaltyBreakBeforeFirstCallParameter: 1
+IndentCaseLabels: true
+IndentWidth: 4
+UseTab: Never
+SortIncludes: false
+ColumnLimit: 128
+AllowAllParametersOfDeclarationOnNextLine: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterStruct: false
+  SplitEmptyFunction: false
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  #BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+  AfterControlStatement: Always
+...

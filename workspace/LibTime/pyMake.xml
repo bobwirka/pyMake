@@ -1,0 +1,17 @@
+<!-- 
+    Example of building a library that can be
+    compiled for any of 3 targets by an '-s' command
+    line parameter:
+        pyMake.py -c -s target:[x86,rpi,w32]
+-->
+<project artifact="mstime" type="library">
+    <include if="{target}==x86">../pyIncX86LinuxNative.xml</include>
+    <include if="{target}==rpi">../pyIncArmLinuxGnueabihf.xml</include>
+    <include if="{target}==w32">../pyIncMingw32.xml</include>
+    <includes>
+        <path>src</path>
+    </includes>
+    <sources>
+        <file path="src/*"/>
+    </sources>
+</project>

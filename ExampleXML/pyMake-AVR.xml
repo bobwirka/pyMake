@@ -1,0 +1,58 @@
+<!-- 
+    Example toolchain, Debug/Release configuraion, and other
+    resources for an embedded system.
+    The processor is an atxmega32e5
+    This file would completely build the application without
+    other XML files included.
+    The <toolchain> and <configuration> elements could be broken
+    out into a <pyInc> file similar to the other examples, and
+    then <include>ed.
+-->
+<project artifact="avrapp.hex" type="executable">
+    <dict key="tools">/opt/compilers/avr/avr8</dict>
+    <toolchain name="avr">
+        <!-- Tools -->
+        <compilerPath>{tools}/bin</compilerPath>
+        <compilerPrefix>avr-</compilerPrefix>
+        <!-- Assembler flags -->
+        <aflag>-gdwarf-2</aflag>
+        <aflag>-x assembler-with-cpp</aflag>
+        <aflag>-mmcu=atxmega32e5</aflag>
+        <!-- Common C/C++ compiler flags -->
+        <ccflag>-funsigned-char</ccflag>
+        <ccflag>-funsigned-bitfields</ccflag>
+        <ccflag>-ffunction-sections</ccflag>
+        <ccflag>-fdata-sections</ccflag>
+        <ccflag>-fpack-struct</ccflag>
+        <ccflag>-fshort-enums</ccflag>
+        <ccflag>-mmcu=atxmega32e5</ccflag>
+        <!-- Linker flags -->
+        <lflag>-Wl,-Map="AVR-PiHat.map"</lflag>
+        <lflag>-Wl,--gc-sections</lflag>
+        <lflag>-mmcu=atxmega32e5</lflag>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>avr</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>avr</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <objects>
+        <obj>{tools}/avr/lib/avrxmega2/libm.a</obj>
+    </objects>
+    <includes>
+        <path>asf</path>
+        <path>asf/bit_handling</path>
+        <path>src</path>
+    </includes>
+    <sources>
+        <file path="asf/ccp.s"/>
+        <file path="asf/nvm_asm.s"/>
+        <file path="asf/nvm.c"/>
+        <file path="src/*"/>
+    </sources>
+</project>

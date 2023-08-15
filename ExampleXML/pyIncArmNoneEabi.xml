@@ -1,0 +1,54 @@
+<!-- 
+    Example toolchain and Debug/Release configuraion for an embedded
+    system.
+    It uses the NutOS (Ethernut) RTOS.
+    The processor is an arm7tdmi (AT91SAM7X512).
+    This 'pyInc' file would be added to a <project> file using
+    the <include> tag.
+-->
+<pyInc>
+    <!-- Location of RTOS tree relative to pyMake.xml -->
+    <dict key="nutroot">../../Ethernut-4.10.3</dict>
+    <!-- Toolchain definition with common flags -->
+    <toolchain name="arm-none-eabi">
+        <compilerPath>/opt/compilers/arm/cs-eabi-lite/bin</compilerPath>
+        <compilerPrefix>arm-none-eabi-</compilerPrefix>
+        <!-- Common C/C++ compiler flags -->
+        <ccflag>-DAT91SAM7X_EK</ccflag>
+        <ccflag>-DMCU_AT91</ccflag>
+        <ccflag>-D__NUT_OS__=1</ccflag>
+        <ccflag>-D_ETHERNUT_</ccflag>
+        <ccflag>-fmessage-length=0</ccflag>
+        <ccflag>-mcpu=arm7tdmi</ccflag>
+        <ccflag>-mthumb-interwork</ccflag>
+        <!-- C specific compiler flags -->
+        <cflag></cflag>
+        <!-- C++ specific compiler flags -->
+        <cppflag>-fno-exceptions</cppflag>
+        <!-- Linker flags -->
+        <lflag>-mcpu=arm7tdmi -nostartfiles</lflag>
+        <lflag>-T{nutroot}/nut/arch/arm/ldscripts/at91sam7x512_rom.ld</lflag>
+        <lflag>-Wl,-Map=app.map,--cref,--no-warn-mismatch</lflag>
+        <!-- 
+            The file 'crtat91sam7x512_rom.o' is referenced in 'at91sam7x512_rom.ld'.
+            This 'L' option is needed for the linker to find it.
+            These flags illustrate how to enable tags using variable substitution.
+            NOTE: The {config} key is built in and is set to the configuration
+                  of the build; typically 'Debug' or 'Release'
+        -->
+        <lflag if="{config}==Debug">-L{nutroot}/nutbld-debug/lib</lflag>
+        <lflag if="{config}==Release">-L{nutroot}/nutbld-release/lib</lflag>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>arm-none-eabi</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+        <!-- Extra space needed for debug -->
+        <ccflag>-DNUT_THREAD_STACK_MULT=3</ccflag>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>arm-none-eabi</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+</pyInc>

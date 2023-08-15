@@ -1,0 +1,75 @@
+/*
+ * The 'compilerPath' values are from toolchains installed
+ * using 'apt install', or from a toolchain installed in
+ * some specific location in the file system.
+ * All are available in stock linux distributions.
+ */
+{
+    "configurations": [
+        {
+            "name": "Linux Native",
+            "defines": [
+                "_POSIX_THREADS"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c89",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x86"
+        },
+        {
+            "name": "Linux Raspberry Pi",
+            "defines": [
+                "_POSIX_THREADS"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            //"compilerPath": "/usr/bin/arm-linux-gnueabihf-gcc",                                       // apt
+            "compilerPath": "/opt/compilers/rpi/arm-linux-gnueabihf-8.3/bin/arm-linux-gnueabihf-gcc",   // custom
+            "cStandard": "c89",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x86"
+        },
+        {
+            "name": "WIN32 mingw",
+            "defines": [
+                "_POSIX_THREADS"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "compilerPath": "/usr/bin/i686-w64-mingw32-gcc",
+            "cStandard": "c89",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x86"
+        },
+        {
+            "name": "ARM Bare Metal",
+            "defines": [],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            //"compilerPath": "/usr/bin/arm-none-eabi-gcc",                                 // apt
+            "compilerPath": "/opt/compilers/arm/cs-eabi-lite/bin/arm-none-eabi-gcc",        // custom
+            "cStandard": "c89",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x86"
+        },
+        {
+            "name": "Atmel AVR",
+            "defines": [],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            //"compilerPath": "/usr/bin/avr-gcc",                                           // apt
+            "compilerPath": "/opt/compilers/avr/avr8/bin/avr-gcc",                          // custom
+            "cStandard": "c89",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x86"
+        }
+    ],
+    "version": 4
+}

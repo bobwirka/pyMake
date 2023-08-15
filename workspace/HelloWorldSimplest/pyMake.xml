@@ -1,0 +1,12 @@
+<!-- 
+    Example of hello world that will be compiled 
+    to a native x86 application.
+    It uses an <include> tag to bring in the x86
+    native toolchain and configurations.
+-->
+<project artifact="hello" type="executable">
+    <include>../pyIncX86LinuxNative.xml</include>
+    <sources>
+        <file path="src/hello.cpp"/>
+    </sources>
+</project>

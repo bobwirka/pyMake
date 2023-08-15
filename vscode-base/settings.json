@@ -1,0 +1,8 @@
+{
+    "cmake.configureOnOpen": false,
+    "files.associations": {
+        "\"*.sedona\"": "\"java\"",
+        "*.sedona": "java",
+        "mstime.h": "c"
+    }
+}

@@ -1,0 +1,30 @@
+<!-- 
+    Windows compiler toolchain and onfigurations using mingw.
+    Flags provide for a static executable or dll to be built.
+    Toolchain can be installed with 'apt'.
+-->
+<pyInc>
+    <toolchain name="i686-w64-mingw32">
+        <compilerPath>/usr/bin</compilerPath>
+        <compilerPrefix>i686-w64-mingw32-</compilerPrefix>
+        <ccflag>-D_POSIX_THREADS</ccflag>
+        <ccflag>-D_GNU_SOURCE</ccflag>
+        <ccflag>-D_WIN32</ccflag>
+        <ccflag>-D_WIN32_WINNT=0x0601</ccflag>
+        <ccflag>-m32</ccflag>
+        <lflag>-m32</lflag>
+        <lflag>-static</lflag>
+        <lflag>-static-libgcc</lflag>
+        <lflag>-static-libstdc++</lflag>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>i686-w64-mingw32</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>i686-w64-mingw32</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+    </configuration>
+</pyInc>

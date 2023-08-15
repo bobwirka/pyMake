@@ -69,15 +69,15 @@ The recommended vscode workspace structure is:
 
 ```
 /workspace
-	.clang-format 		            <--For formatting C/C++ source code in vscode
-	.vscode 			            <--VSCode folder with tasks, launch, and c_cpp_preferences
+	.clang-format					<--For formatting C/C++ source code in vscode
+	.vscode							<--VSCode folder with tasks, launch, and c_cpp_preferences
 	/project
-		pyMake.xml 		            <--Project description XML file
-        /Release                    <--Output folder: Release configuration
+		pyMake.xml					<--Project description XML file
+        /Release					<--Output folder: Release configuration
             executable or library
             /src
                 intermediate files
-		/src			            <--Headers & source files
+		/src						<--Headers & source files
 			header.h
 			source1.c
 			source2.cpp

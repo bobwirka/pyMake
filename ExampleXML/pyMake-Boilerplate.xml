@@ -1,0 +1,45 @@
+<!-- 
+    Compile and link flags are scanned at root level,
+    in selected toolchain, and in selected configuration.
+        <aflag></aflag>
+        <cflag></cflag>
+        <ccflag></ccflag>
+        <cppflag></cppflag>
+        <lflag></lflag>
+-->
+<project artifact="name[.ext]" type="executable/library">
+    <dict key="key">value</dict>
+    <include>somefile.xml</include>
+    <pre_op></pre_op>
+    <post_op></post_op>
+    <someflags></someflags>
+    <toolchain name="native">
+        <compilerPath></compilerPath>
+        <compilerPrefix></compilerPrefix>
+        <someflags></someflags>
+    </toolchain>
+    <configuration name="Debug">
+        <toolchain>native</toolchain>
+        <optimization>-O0</optimization>
+        <debugging>-g3</debugging>
+        <someflags></someflags>
+    </configuration>
+    <configuration name="Release">
+        <toolchain>native</toolchain>
+        <optimization>-O1</optimization>
+        <debugging>-g3</debugging>
+        <someflags></someflags>
+    </configuration>
+    <includes>
+        <path></path>
+    </includes>
+    <objects>
+        <obj></obj>
+    </objects>
+    <prebuilds>
+        <project path="somepath"/>
+    </prebuilds>
+    <sources>
+        <file path="src/*"/>
+    </sources>
+</project>

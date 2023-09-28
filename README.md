@@ -11,9 +11,9 @@ The main features of pyMake are:
 
 - All data needed to build a project can be contained in one XML file
 
-- Variable substitution allows text to be replaced in any element
-
 - The \<include> tag allows files with additional XML configuration to be added
+
+- Variable substitution allows text to be replaced in any element
 
 - An 'if' attribute can be added to any element to include/exclude it from the compilation process.
 
@@ -25,15 +25,15 @@ The main features of pyMake are:
 
 - Generates and uses dependency data when compiling.
 
-## Why you might want to use pyMake and vscode
+## Why you might want to use pyMake and Visual Studio Code
 
 - IDE's hide configurations in complex XML or binary files  
 - IDE's change, and can break projects  
 - pyMake defines all project data in readable XML format  
-- vscode is agnostic about build system  
+- vscode is agnostic about a build system  
 - vscode does a great job of analyzing code  
 - vscode has features to build and debug both projects and pyMake itself  
-- You can modify and debug pyMake.py if you need to add/delete a feature
+- You can modify and debug pyMake.py if you need to add/delete features
 
 ## Installation
 
@@ -43,8 +43,7 @@ make it executable; /usr/local/bin is a good choice.
 To see the command line options availalbe to pyMake, execute:
 ```
 >pyMake.py --help
-
-usage: pyMake.py [-h] [-v] [-c] [-p] [-f FILE] [-g CFG] [-o ONE] [-s SUB]
+usage: pyMake.py [-h] [-v] [-c] [-p] [-f FILE] [-g CFG] [-o ONE] [-s SUB] [-i INC] [-x]
 
 Compiles an application as specified in the configuration XML file
 
@@ -57,9 +56,10 @@ options:
   -g CFG, --cfg CFG     Build configuration used in XML file: default=Release
   -o ONE, --one ONE     Compile just the specified file: default=None
   -s SUB, --sub SUB     Append semicolon delimited key/value pair to variable substitution dictionary
-  -i INC, --inc INC     Include XML <dict> file: default=None
+  -i INC, --inc INC     Include XML <dict> file(s): default=None
+  -x, --xml             Print intermediate pyMake.xml iterations (for debugging pyMake): default=False
 
-Example: pyMake.py -c -p -g Debug -s platform:XYZ -o main.c
+Example: pyMake.py -c -p -g Debug -s target:x86 -o main.c
 ```
 It is recommended to use Visual Studio Code for working with pyMake.  
 The 'workspace/.vscode' folder provides support for compiling a single file  
@@ -69,19 +69,19 @@ The recommended vscode workspace structure is:
 
 ```
 /workspace
-    .clang-format                   <--For formatting C/C++ source code in vscode
-    .vscode                         <--VSCode folder with tasks, launch, and c_cpp_preferences
-    /project
-        pyMake.xml                  <--Project description XML file
+	.clang-format 		            <--For formatting C/C++ source code in vscode
+	/.vscode 			            <--VSCode folder with tasks, launch, and c_cpp_preferences
+	/project
+		/src			            <--Headers & source files
+			header.h
+			source1.c
+			source2.cpp
         /Release                    <--Output folder: Release configuration
             executable or library
             /src
                 intermediate files
-        /src                        <--Headers & source files
-            header.h
-            source1.c
-            source2.cpp
-    More projects
+		pyMake.xml 		            <--Project description XML file
+	More projects
 ```
 ## Compiling a project
 
@@ -189,7 +189,11 @@ flags that are specific to the processor or system.
         -i myDicts.xml  (Root element mus be <dicts>)
 
     NOTE: The {config} key is built in and is set to the configuration
-          used for the build; typically 'Debug' or 'Release'
+          used for the build; typically 'Debug' or 'Release'  
+          The {ccprefix} key is built in and is the "toolchain-prefix"  
+          for the selected toolchain. It is the complete path to the  
+          executables. Use it in <post_op> elements to invoke a specific
+          executable: {ccprefix}objcopy for instance.
 -->
 <!-- 
     The project artifact can include an extension; someFcn.bin, someFcn.exe, etc.
@@ -204,15 +208,18 @@ flags that are specific to the processor or system.
     <dict key="boolKey">0</dict>
     <dict key="textKey">XYZ</dict>
     <!--
-        Optional command line (Python os.system()) operations to be done before
+        Top level compiler flags.
+    -->
+    <ccflag>-D_SOMETHING_</ccflag>
+    <!--
+        Command line (Python os.system()) operations to be done before
         and after compile and link.
         <pre_op> commands are executed after processing any keys supplied on the
         command line and before any other keys are processed.
         Both <pre_op> and <post_op> command can use variable substitution.
     -->
     <pre_op>some-prebuild-operation</pre_op>
-    <pre_op>echo "Starting"</pre_op>
-    <post_op>echo "Done"</post_op>
+    <post_op>{ccprefix}ranlib lib.a</post_op>
     <!-- 
         The artifact extension can be explicitly or conditionally set:
             bin, hex, exe, a, so, dll
@@ -298,8 +305,9 @@ flags that are specific to the processor or system.
         <file path="lcl/*">
             <exclude>foo.c</exclude>
             <exclude>bar.cpp</exclude>
+            <ccflag>-D_SOMETHING_ELSE_</ccflag>  <!-- Source file specific compiler flags -->
         </file>
-        <file path="...">
+        <file path="somepath">
             <optimization>-O2</optimization>
             <debugging>-g2</debugging>
         </file>
@@ -308,7 +316,7 @@ flags that are specific to the processor or system.
 ```
 ## Working with Visual Studio Code
 
-#### The vscode extensions used for this project are:
+#### The vscode extensions used for these examples are:
 ```
     Auto Rename Tag
     autopep8

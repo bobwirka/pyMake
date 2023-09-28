@@ -31,6 +31,7 @@ Revision History.
 
             Added <isys> tags for generating "-isystem path" compiler
             parameters. Specifies path for system includes.
+            NOTE: Removed 24-Aug-2023; can be done with standard flags.
 
             Parse <dict> entries twice; once for top level, then
             again if <include> files present.
@@ -82,8 +83,18 @@ Revision History.
 
             Added <pre_op> and <post_op> elements for executing scripts or apps
             before and after the build.
+
+1.0.9       21-Sep-2023     RCW
+
+            Modified process flow to read in all the included files, cull any
+            non-applicable <configuration> and <toolchain> elements, then take
+            care of all the variable substitutions.
+
+            Have -x command line parameter that prints intermediate xml results.
+
+            There can be more than one -i included xml file on the command line.
 """
-REVISION:str = '1.0.8'
+REVISION:str = '1.0.9'
 
 # If true, <objects> and <prebuilds> are read from within <configuration>,
 # otherwise at the <project> (root) level.
@@ -110,8 +121,8 @@ def parseFile(filePath):
         tree = etree.parse(filePath , parser)
         root = tree.getroot()
         return tree , root
-    except lxml.etree.ParseError:
-        print(f'Error parsing file {filePath}')
+    except lxml.etree.ParseError as err:
+        print(f'Error parsing file {filePath}:{err}')
         return None , None
 
 ###########################################################
@@ -121,16 +132,26 @@ def parseFile(filePath):
 # Returns modified text, original text (if no substitution),
 # or None if a {key} is not in the dictionary.
 #
-def getVarSub(match:re.Match)->str:
+def getVarSub(match:re.Match, required:bool=True)->str:
     key = match.group()[1:-1]
     if key not in varSubDict:
-        raise ValueError(f'ERROR: Key {key} not in dictionary')
-    return varSubDict[key]
+        if required:
+            raise ValueError(f'ERROR: Key {key} not in dictionary')
+        else:
+            return '{' + key + '}'
+    retval = varSubDict[key]
+    # Leave undefined keys alone.
+    if retval == '_undefined_':
+        retval = '{' + key + '}'
+    return retval
 
-def varSub(expression)->str | None:
+def varSub(expression:str, required:bool=True)->str | None:
     # Must declare here.
     global gError
 
+    # We give undefined values a pass.
+    if expression == '_undefined_':
+        return expression
     # Assume success.
     gError = None
     # Remove leading and trailing white space.
@@ -141,64 +162,52 @@ def varSub(expression)->str | None:
     try:
         # Note that getVarSub() will be called for each instance
         # of {key} that is encountered in the string.
-        retval = re.sub(r'\{.*?\}', getVarSub, expression)
+        retval = re.sub(r'\{.*?\}', lambda match: getVarSub(match, required), expression)
     except ValueError as err:
-        gError = err
-        return None
+        if required:
+            gError = err
+            return None
+        else:
+            return expression
     return retval
 
 ###############################################################
 # Function to find all <dict> child elements and add
 # their key:values to the variable substitution dictionary.
-# <configuration> or <toolchain> elements can be ignored.
+# Comments, 'added' and 'culled' elements are ignored.
 #
-def addDicts(varDict:dict , ele:'etree.Element' , config:str | None, toolchain:str | None):
+def addDicts(varDict:dict, ele:'etree.Element', config:str|None=None, toolchain:str|None=None, required:bool=False):
     for child in ele:
-        # Ignore comments.
-        if 'Comment' in str(child.tag):
+        # Ignore comments, added, and culled elements.
+        tag = str(child.tag)
+        if 'Comment' in tag or 'culled' in tag or 'added' in tag:
             continue
-        # Ignore configuration if no match.
-        if child.tag == 'configuration':
-            if config is None:
-                continue
-            if child.get('name') != config:
-                continue
-            addDicts(varDict, child, None, None)
+        # Continue if not <dict>.
+        if tag != 'dict':
             continue
-        # Ignore toolchain if no match.
-        if child.tag == 'toolchain':
-            if toolchain is None:
-                continue
-            if child.get('name') != toolchain:
-                continue
-            addDicts(varDict, child, None, None)
+        # Check for 'if'; evaluation.
+        result = checkIfElement(child, required)
+        # None: evaluation required, but has undefined {key}.
+        if result is None:
+            eleString = etree.tostring(child, pretty_print=True).decode('utf-8')
+            raise ValueError(f'ERROR: Unknown key in <dict>: {eleString}')
+            # NOTREACHED
+        # False: no 'if', or 'if' evaluation is False.
+        if result is False:
             continue
-        # Add if dictionary entry.
-        if child.tag == 'dict':
-            # Check for 'if'.
-            flag = child.get('if')
-            if flag is not None:
-                flag = varSub(flag)
-                # Ignore (for now) if missing {key}.
-                if gError is not None:
-                    continue
-                child.attrib['if'] = flag
-                # Mark and continue if flag is False.
-                if not checkIfTag(flag):
-                    child.tag = 'culled'
-                    continue
-            key:str = child.get('key')
-            if key is None:
-                print(f'ERROR: <dict> elmenent has no key')
-                continue
-            value = child.text
-            if value is None:
-                print(f'ERROR: <dict> with key {key} has no value')
-                continue
-            varDict[key] = value
-            # Mark as added.
-            child.tag = 'added'
+        # True: no 'if', or 'if' evaluation is True.
+        key:str = child.get('key')
+        if key is None:
+            print(f'ERROR: <dict> elmenent has no key')
             continue
+        value = child.text
+        if value is None:
+            print(f'ERROR: <dict> with key {key} has no value')
+            continue
+        varDict[key] = value
+        # Mark as added.
+        child.tag = f'{child.tag}-added'
+        continue
 
 ###############################################################
 # Check dependencies for change.
@@ -268,58 +277,14 @@ def makeMtime(build:'Build' , srcFile:'SourceFile'):
     fd.close()
 
 ###############################################################
-# Compiler and linker flags.
-# Get cflagsPre/Post and lflagsPre/Post.
-#
-def addCompilerFlags(cfg:'Config' , eleRoot:'etree.Element'):
-    # Get compiler flags for assembly.
-    eleList = eleRoot.findall('aflag')
-    for flag in eleList:
-        if flag.text != None:
-            cfg.aflags.append(flag.text)
-    # Get common C/C++ compiler flags.
-    eleList = eleRoot.findall('ccflag')
-    for flag in eleList:
-        if flag.text != None:
-            cfg.ccflags.append(flag.text)
-    # Get C specific compiler flags.
-    eleList = eleRoot.findall('cflag')
-    for flag in eleList:
-        if flag.text != None:
-            cfg.cflags.append(flag.text)
-    # Get C++ specific compiler flags.
-    eleList = eleRoot.findall('cppflag')
-    for flag in eleList:
-        if flag.text != None:
-            cfg.cppflags.append(flag.text)
-    # Get linker flags.
-    eleList = eleRoot.findall('lflag')
-    for flag in eleList:
-        if flag.text != None:
-            cfg.lflags.append(flag.text)
-
-###############################################################
 # Toolchain.
 # Only called if 'cfg' has a toolchain specified.
 # Checks that compiler is present.
 #
-def addToolChain(cfg:'Config' , eleRoot:'etree.Element') -> bool:
-    # Find matching toolchain.
-    eleToolchain = None
-    eleList = eleRoot.findall('toolchain')
-    for chain in eleList:
-        if chain.get('name') == cfg.toolChainName:
-            eleToolchain = chain
-            break
-    # If not found.
-    if eleToolchain == None:
-        # If 'native', we really don't need a <toolchain>
-        if cfg.toolChainName == 'native':
-            return True
-        # Else missing toolchain.
-        print(f'Toolchain {cfg.toolChainName} not found')
-        return False
-
+def addToolChain(cfg:'Config' , eleToolchain:'etree.Element') -> bool:
+    # If native toolchain, just return.
+    if eleToolchain.get('name') == 'native':
+        return True
     # Get compiler path (optional).
     ele = eleToolchain.find('compilerPath')
     if ele == None:
@@ -359,21 +324,56 @@ def addToolChain(cfg:'Config' , eleRoot:'etree.Element') -> bool:
     # Verify that the compiler exists.
     result = os.system(f'{ccPrefix}gcc --version 1>/dev/null')
     if result != 0:
-        print(f'Compiler {ccPrefix}gcc not present')
+        print(f'ERROR:Compiler {ccPrefix}gcc not present')
         return False
     else:
-        print(f'Compiler {ccPrefix}gcc found')
+        print(f'ERROR:Compiler {ccPrefix}gcc found')
 
     # Assign path, prefix, and compiler command.
     cfg.compilerPath = compilerPath
     cfg.compilerPrefix = compilerPrefix
     cfg.ccPrefix = ccPrefix
 
-    # Get toolchain compiler flags.
-    addCompilerFlags(cfg , eleToolchain)
-
     # Success
     return True
+
+###############################################################
+# Class of compiler and linker flags.
+#
+class Flags:
+    def __init__(self):
+        self.a = []
+        self.c = []
+        self.cc = []
+        self.cpp = []
+        self.l = []
+    
+    def addFlags(self, eleRoot:'etree.Element'):
+        # Get compiler flags for assembly.
+        eleList = eleRoot.findall('aflag')
+        for flag in eleList:
+            if flag.text != None:
+                self.a.append(flag.text)
+        # Get C specific compiler flags.
+        eleList = eleRoot.findall('cflag')
+        for flag in eleList:
+            if flag.text != None:
+                self.c.append(flag.text)
+        # Get common C/C++ compiler flags.
+        eleList = eleRoot.findall('ccflag')
+        for flag in eleList:
+            if flag.text != None:
+                self.cc.append(flag.text)
+        # Get C++ specific compiler flags.
+        eleList = eleRoot.findall('cppflag')
+        for flag in eleList:
+            if flag.text != None:
+                self.cpp.append(flag.text)
+        # Get linker flags.
+        eleList = eleRoot.findall('lflag')
+        for flag in eleList:
+            if flag.text != None:
+                self.l.append(flag.text)
 
 ###############################################################
 # Child projects to pre-build.
@@ -457,6 +457,7 @@ class FileType(IntEnum):
 
 # Append a source file.
 # If duplicate name, the existing source will be replaced.
+#
 def srcAppend(sourcList:list['SourceFile'], newSource:'SourceFile'):
     source:SourceFile
     for i in range(len(sourcList)):
@@ -505,16 +506,21 @@ class SourceFile:
             self.debugging = ele.text
         else:
             self.debugging = None
+        # File specific compiler flags.
+        self.flags = Flags()
+        self.flags.addFlags(eleFile)
         # Modification timestamp for dependency tracking.
         self.timestamp = str(os.path.getmtime(self.path))
         # Success.
         self.initialized = True
 
 ###############################################################
-# Here to find the toolchain specified by the <toolchain>
-# element in the specified <configuration>
+# Find the proper <configuration> element, <toolchain> element.
+# Mark as 'culled' any that don't match.
+# Return with <configuration> element, <toolchain> element,
+# and 'ccprefix'
 #
-def GetToolchainName(eleRoot:'etree.Element', config:str):
+def GetConfigAndToolchain(eleRoot:'etree.Element', config:str):
     # Get all the available configurations.
     eleList = eleRoot.findall('configuration')
     # Assume we don't find it.
@@ -524,24 +530,42 @@ def GetToolchainName(eleRoot:'etree.Element', config:str):
         if cfgName == config:
             result = True
             break
+        else:
+            eleCfg.tag = 'configuration-culled'
     # Check result.
     if not result:
-        print(f'Project configuration {config} not found')
-        return None
+        print(f'ERROR:Project configuration {config} not found')
+        return None, None
     # Get the toolchain name.
-    toolChainName = eleCfg.find('toolchain').text
-    if toolChainName == None:
-        print(f'<toolchain> element missing in <configuration>{config}')
-        return None
-    # Found it.
-    return toolChainName
+    eleToolchain = eleCfg.find('toolchain')
+    if eleToolchain is None:
+        print(f'ERROR:Project configuration {config} has no toolchain specified')
+        return None, None
+    toolChainName = eleToolchain.text
+    # Get all the available toolchains.
+    eleList = eleRoot.findall('toolchain')
+    # Assume we don't find it.
+    result = False
+    for eleToolchain in eleList:
+        name = eleToolchain.get('name')
+        if name == toolChainName:
+            result = True
+            break
+        else:
+            eleToolchain.tag = 'toolchain-culled'
+    # Check result.
+    if not result:
+        print(f'ERROR:Project configuration {config} toolchain {toolChainName} not found')
+        return None, None
+    # Found both; return.
+    return eleCfg, eleToolchain
 
 ###############################################################
 # Configuration class.
 # Has all the data needed for compile/link.
 #
 class Config:
-    def __init__(self , build:'Build'  , eleRoot:'etree.Element'):
+    def __init__(self, build:'Build', eleRoot:'etree.Element', eleCfg, eleToolchain):
 
         # Assume failure.
         self.initialized = False
@@ -587,25 +611,6 @@ class Config:
             self.artifactFullName = f'{self.artifact}.{self.extension}'
 
         #######################################################
-        # Check that configuration exists.
-        #######################################################
-
-        # Get all the available configurations.
-        eleList = eleRoot.findall('configuration')
-        # Assume we don't find it.
-        result = False
-        for eleCfg in eleList:
-            cfgName = eleCfg.get('name')
-            if cfgName == build.configuration:
-                # Save configuration ele for compiler flag check below.
-                result = True
-                break
-        # Check result.
-        if not result:
-            print(f'Project configuration {build.configuration} not found')
-            return
-
-        #######################################################
         # Set default configuration data.
         #######################################################
 
@@ -616,16 +621,8 @@ class Config:
         self.ccPrefix = ''
         self.optimization = '-O0'
         self.debugging = '-g3'
-        # Compiler flags for assembly.
-        self.aflags = []
-        # Common compiler flags for c/c++.
-        self.ccflags = []
-        # C specific compiler flags.
-        self.cflags = []
-        # C++ specific compiler flags.
-        self.cppflags = []
-        # Linker defines.
-        self.lflags = []
+        # Flags.
+        self.flags = Flags()
         # Includes
         self.includes = []
         # Libraries.
@@ -652,19 +649,32 @@ class Config:
             self.debugging = None
 
         #######################################################
+        # Get project specific compiler flags.
+        #######################################################
+
+        self.flags.addFlags(eleRoot)
+
+        #######################################################
         # Get configuration specific compiler flags.
         #######################################################
 
-        addCompilerFlags(self, eleCfg)
+        self.flags.addFlags(eleCfg)
+
+        #######################################################
+        # Get toolchain specific compiler flags.
+        #######################################################
+
+        self.flags.addFlags(eleToolchain)
 
         #######################################################
         # Toolchain name; data is assigned later.
         #######################################################
-
-        ele = eleCfg.find('toolchain')
-        if ele != None:
-            # Get toolchain name.
-            self.toolChainName = ele.text
+        
+        # Get toolchain name.
+        self.toolChainName = eleToolchain.get('name')
+        result = addToolChain(self, eleToolchain)
+        if not result:
+            return
 
         #######################################################
         # Get list of objects for linking.
@@ -678,6 +688,8 @@ class Config:
         if ele != None:
             eleList = ele.findall('obj')
             for ele in eleList:
+                if ele.text is None:
+                    continue
                 text:str = ele.text.strip()
                 # Allow null tags.
                 if text == None:
@@ -714,14 +726,6 @@ class Config:
                 text = ele.text
                 # Add to list.
                 self.includes.append(text)
-            eleList = ele.findall('isys')
-            for ele in eleList:
-                # Get element text.
-                text = ele.text
-                # Add prefix.
-                text = f'-isystem {text}'
-                # Add to <ccflag> list.
-                self.ccflags.append(text)
 
         #######################################################
         # Get source files.
@@ -774,6 +778,7 @@ class Config:
                 # Replace exisiting if duplicate, otherwise just append.
                 srcAppend(self.sources, srcFile)
                 #self.sources.append(srcFile)
+
         # Good if we get here.
         self.initialized = True
         return
@@ -784,15 +789,16 @@ class Config:
 
 # Variable substitution for one element; both
 # attributes and text.
-def doVarsub(ele:'etree.Element')->bool:
+#
+def doVarsub(ele:'etree.Element', required:bool=True)->bool:
     attrList = ele.attrib
     for attr in attrList:
-        value = varSub(ele.attrib[attr])
+        value = varSub(ele.attrib[attr], required)
         if value is None:
             return False
         ele.attrib[attr] = value
     if ele.text is not None:
-        value = varSub(ele.text)
+        value = varSub(ele.text, required)
         if value is None:
             return False
         ele.text = value
@@ -801,19 +807,22 @@ def doVarsub(ele:'etree.Element')->bool:
 # Recursively replace the keys in the element, and all
 # it's children.
 # Raises an exception if varSub() fails: key not found.
-def replaceKeys(ele:'etree.Element')->bool:
-    if not doVarsub(ele):
-        raise ValueError(gError)
+#
+def replaceKeys(ele:'etree.Element', required:bool=True)->bool:
+    if not 'Comment' in str(ele.tag):
+        if not 'culled' in ele.tag:
+            if not doVarsub(ele, required):
+                raise ValueError(gError)
     eleList = ele.getchildren()
     for child in eleList:
         # Ignore comments.
         if 'Comment' in str(child.tag):
             continue
-        if child.tag == 'culled' or child.tag == 'added':
+        if 'culled' in child.tag or 'added' in child.tag:
             continue
-        if not doVarsub(child):
+        if not doVarsub(child, required):
             raise ValueError(gError)
-        replaceKeys(child)
+        replaceKeys(child, required)
     return True
 
 # Here to check if an 'if' attribute value is true or false.
@@ -821,6 +830,7 @@ def replaceKeys(ele:'etree.Element')->bool:
 #   if="value"       True if value != 0 else False
 #   if="key==value"  True if key == value else False
 #   if="key!=value"  True if key != value else False
+#
 def simpleIfCheck(keyVal:str)->bool:
     # If '==' present.
     parts = keyVal.split('==')
@@ -837,11 +847,10 @@ def simpleIfCheck(keyVal:str)->bool:
     # Just the key.
     return True if parts[0] != '0' else False
 
-###############################################################
 # Courtesy of ChatGPT: an expression evaluator that allows
 # grouping of logical expressions with '()'.
 # 
-def complexIfCheck(expression):
+def complexIfCheck(expression)->bool:
     # Replace the custom logical operators and parentheses
     expression = expression.replace(";or;", " or ").replace(";and;", " and ").replace("(", "( ").replace(")", " )")
     
@@ -902,40 +911,71 @@ def checkIfTag(expression:str)->bool:
         return simpleIfCheck(expression)
     return complexIfCheck(expression)
 
+# Checks an element for if="condition".
+# 'condition' can be:
+#   {key}
+#   {key}==0/1 or {key}!=0/1
+#   {key}=={key} or {key}!={key}
+#   {key};and;{key} or {key};or;{key}
+#   Logical groupings with () of the above
+# Returns:
+#   True    If not conditional
+#   True    If condition is True
+#   False   If condition is False
+#   False   If not required and a {key} is undefined.
+#   None    If required and a {key} is undefined.
+#
+def checkIfElement(ele:etree.Element, required:bool=False)->bool | None:
+    # Return True if the element is not conditional.
+    if 'if' not in ele.attrib:
+        return True
+    # See if the condition can be evaluated.
+    condition = ele.get('if')
+    condition = varSub(condition, required)
+    # If there is an undefined {key}
+    if condition is None:
+        # Return either None or False
+        return None if required else False
+    # Replace the key.
+    ele.attrib['if'] = condition
+    # Mark and return if evaluated as False.
+    if not checkIfTag(condition):
+        ele.tag = f'{ele.tag}-culled'
+        return False
+    # Has 'if' evaluated as True
+    return True
+
 # Recursively rename tags that have an 'if' attribute
 # that evaluates to False.
 # Renaming these tags effectively removes them
 # from the XML configuration file.
-def cullTags(element:'etree.Element'):
-    # If the element has not already been culled or added.
-    if element.tag != 'culled' and element.tag != 'added':
-        # And if there's an 'if' attribute.
-        if 'if' in element.attrib:
-            # Get the entire attribute value.
-            keyVal = element.attrib['if']
-            # Check keyVal.
-            if not checkIfTag(keyVal):
-                element.tag = 'culled'
+#
+def processIfAttributes(element:'etree.Element'):
+    # Ignore comments.
+    if 'Comment' not in str(element.tag):
+        # If the element has not already been culled or added.
+        if 'culled' not in element.tag and 'added' not in element.tag:
+            # Check for an 'if' attribute; will cull if false.
+            checkIfElement(element)
     # Recursively traverse the child elements.
     for child in element:
-        if child.tag == 'culled':
-            continue
-        cullTags(child)
+        processIfAttributes(child)
 
 # The Build object holds all the information from
 # the command line and the XML configuration file.
 # It's properties define everything needed for a build.
 # It's methods perform the steps needed for a build.
+#
 class Build:
-    def __init__(self, 
-                 cfgfile:str, 
-                 config:str, 
-                 clean:bool=False, 
-                 prebuilds:bool=False, 
-                 subs:'list[str]' = [], 
-                 dictFile:str='None', 
-                 subDict:dict=None, 
-                 singleFile:str='None') -> None:
+    def __init__(self,
+                 cfgfile:str,
+                 config:str,
+                 clean:bool=False,
+                 prebuilds:bool=False,
+                 subs:'list[str]' = [],
+                 incs:'list[str]' = [],
+                 subDict:dict = None,
+                 singleFile:str = None) -> None:
 
         found:bool
 
@@ -954,6 +994,9 @@ class Build:
         if tree == None:
             print(f'Error parsing configuration file: {cfgfile}')
             return
+        
+        # Save xml tree.
+        self.root = root
 
         # Assign values from command line.
         self.configFile = cfgfile
@@ -961,7 +1004,7 @@ class Build:
         self.makeClean = clean
         self.prebuilds = prebuilds
         self.subs = subs
-        if singleFile != 'None':
+        if singleFile is not None:
             if not singleFile.endswith('.s') and not singleFile.endswith('.c') and not singleFile.endswith('.cpp'):
                 print(f'Unable to compile {singleFile}: wrong file type, need .s,.c,.cpp')
                 return
@@ -969,9 +1012,13 @@ class Build:
             self.makeClean = True
         self.singleFile = singleFile
 
-        # Add the configuration to variable substitution.
-        # Using a shorter version for brevity if used as {key}.
+        #######################################################
+        # Add <dict> entries that will be defined based on
+        # the configuration.
+        #######################################################
         varSubDict['config'] = self.configuration
+        # Will be defined after the toolchain is added.
+        varSubDict['ccprefix'] = '_undefined_'
 
         # Add command line key:value pairs to variable substitution.
         for kvp in subs:
@@ -981,59 +1028,65 @@ class Build:
                 return
             varSubDict[parts[0]] = parts[1]
 
-        # Apply any operations to be done before we proceed.
-        preopList = root.findall('pre_op')
-        for preop in preopList:
-            cmd = preop.text
-            cmd = varSub(cmd)
-            if cmd is None:
-                print(f'ERROR: Unknown key in <pre_op>: {cmd}')
-                return
-            result = os.system(cmd)
-            if result != 0:
-                print(f'ERROR: <pre_op> command failed: {cmd}')
-                return
-            
-        # Save any post operations.
-        self.postop = []
-        postopList = root.findall('post_op')
-        for postop in postopList:
-            cmd = postop.text
-            cmd = varSub(cmd)
-            if cmd is None:
-                print(f'ERROR: Unknown key in <post_op>: {cmd}')
-            self.postop.append(cmd)
-
         # Add key:value dictionary if supplied.
         if subDict is not None:
             for sub in subDict:
                 varSubDict[sub] = subDict[sub]
 
-        # Add <dict> elements from command line XML file.
+        # Add <dict> elements if XML files specified by '-i' parameter.
         # Root element of this file must have tag name 'dicts'.
-        if dictFile != 'None':
+        for inc in incs:
             # Sanity check.
-            dictFile = dictFile.strip()
-            if not os.path.exists(dictFile):
-                print(f'ERROR: XML include file not found: {dictFile}')
+            inc = inc.strip()
+            if not os.path.exists(inc):
+                print(f'ERROR: XML include file not found: {inc}')
                 return
             # Parse it.
-            incTree, incRoot = parseFile(dictFile)
+            incTree, incRoot = parseFile(inc)
             if incRoot is None:
-                print(f'ERROR: Unable to parse XML include file: {dictFile}')
+                print(f'ERROR: Unable to parse XML include file: {inc}')
                 return
             # Check root tag name.
             if incRoot.tag != 'dicts':
-                print(f'ERROR: Root of include file {dictFile} does not have "dicts" tag')
+                print(f'ERROR: Root of include file {inc} does not have "dicts" tag')
                 return
-            # Add dictionay entries.
-            addDicts(varSubDict, incRoot, None, None)
+            # Add dictionay entries; no {keys} allowed.
+            print(f'Adding dictionary file {inc}')
+            addDicts(varSubDict, incRoot, None, None, True)
 
-        # Get top level <dict> entries.
-        # These may be used directly below by <include> elements.
-        # Now, these <dict> elements may have 'if' attributes with
-        # as yet unresolved {key} values. They will be ignored.
-        addDicts(varSubDict , root , None , None)
+        # Apply any operations to be done before we proceed.
+        # <pre_op> elements must have defined {keys}.
+        opList = root.findall('pre_op')
+        for op in opList:
+            # Check element for conditional; MUST be evaluated if present.
+            result = checkIfElement(op, True)
+            # NONE: Conditional present with undefined {key}.
+            if result is None:
+                eleString = etree.tostring(op, pretty_print=True).decode('utf-8')
+                print(f'ERROR: Unknown key in <pre_op>: {eleString}')
+                return
+            # FALSE: Conditional present, and evaluates to False; has been be marked 'culled'.
+            if result is False:
+                continue
+            # TRUE: Conditional not present or IS present and evaluates to True
+            cmd = op.text
+            cmd = varSub(cmd, True)
+            if cmd is None:
+                print(f'ERROR: Unknown key in <pre_op>: {op.text}')
+                return
+            op.text = cmd
+            failed = False
+            result = os.system(cmd)
+            flag = op.get('result')
+            if flag is not None:
+                flag = int(flag)
+                failed = flag != result
+            if not failed:
+                print(f'<pre_op> command : {cmd} : returned {result}')
+            else:
+                print(f'ERROR: <pre_op> command : {cmd} : returned {result}')
+                return
+            op.tag = f'{op.tag}-added'
 
         # Add any <include> files.
         # Appends a deep copy of each element to the root.
@@ -1050,26 +1103,22 @@ class Build:
         #       to the configuration XML image.
         incList = root.findall('include')
         for inc in incList:
-            if 'if' in inc.attrib:
-                flag = inc.attrib['if']
-                flag = varSub(flag)
-                if gError is not None:
-                    print(gError)
-                    return
-                inc.attrib['if'] = flag
-                result = checkIfTag(flag)
-                if result is None:
-                    print(gError)
-                    return
-                if not result:
-                    inc.tag = 'culled'
-                    continue
-            pathText = inc.text.strip()
-            incPath = varSub(pathText)
-            if gError is not None:
+            # Check for conditional; complete evaluation is required.
+            result = checkIfElement(inc, True)
+            # NONE: Conditional present with undefined {key}.
+            if result is None:
                 print(gError)
                 return
-            if incPath is None or not os.path.exists(incPath):
+            # FALSE: Conditional present, and evaluates to False; has been be marked 'culled'.
+            if result is False:
+                continue
+            # TRUE: Conditional not present or IS present and evaluates to True
+            pathText = inc.text.strip()
+            incPath = varSub(pathText, True)
+            if incPath is None:
+                print(gError)
+                return
+            if not os.path.exists(incPath):
                 print(f'Include file {pathText} not found')
                 return
             incTree,incRoot = parseFile(incPath)
@@ -1087,52 +1136,53 @@ class Build:
                 for child in incRoot:
                     root.append(deepcopy(child))
             # Mark as added.
-            inc.tag = 'added'
+            inc.tag = f'{inc.tag}-added'
 
-        # Add <configuration> <dict> elements from the project root level.
-        # Ignore <toolchain> elements.
-        # NOTE: This function does NOT do variable substitution.
-        addDicts(varSubDict, root, self.configuration, None)
-
-        # Get the <toolchain> name specified in the <configuration>.
-        toolChainName = GetToolchainName(root, self.configuration)
-        if toolChainName == None:
+        # Get the <configuration> and <toolchain> elements
+        # for this project. Non-matching elements will be
+        # marked 'culled'.
+        self.eleCfg, self.eleToolchain = GetConfigAndToolchain(root, config)
+        if self.eleCfg is None:
             return
-
-        # Add <toolchain> <dict> elements from the project root level.
-        # Ignore <configuration> elements (already done).
-        # NOTE: This function does NOT do variable substitution.
-        addDicts(varSubDict , root , None , toolChainName)
+        
+        # Show the work.
+        if printIntermediateXml:
+            tree.write('eraseme.xml' , pretty_print=True)
+        
+        #######################################################
+        # At this point, the XML files have all been processed
+        # and unused <configuration> and <toolchain> elements
+        # have been marked 'culled'.
+        # We can now run through the entire file and add all
+        # the <dict> elements.
+        #######################################################
+        
+        # Recursively get all <dict> elements added to varSubDict.
+        # These may be used directly below by <include> elements.
+        # {keys} can be undefined.
+        try:
+            addDicts(varSubDict, root, None, None, None)
+        except ValueError as err:
+            print(err)
+            return
 
         # We are now finished adding raw <dict> entries.
         # <dict> values may themselves have {key} entries.
         # Example:
         #   <dict key="tool">myTool</dict>
         #   <dict key="fooTool">foo/{tool}</dict>
-        # We now loop through the <dict> entries to reconcile
-        # values that have a {key}.
-        # Setting an arbitrary limit of 10 iterations.
-        checkLimit:int = 10
-        while True:
-            all_good = True
-            for key in varSubDict:
-                value = varSub(varSubDict[key])
-                if gError is not None:
-                    print(gError)
-                    return
-                varSubDict[key] = value
-                if '{' in value:
-                    all_good = False
-                    checkLimit -= 1
-                    if checkLimit == 0:
-                        print(f'ERROR: Cannot reconcile all <dict> values')
-                        return
-            if all_good:
-                break
+        # Verify that there are no undefined variable substitutions.
+        # This will ERROR if any undefined keys (except if undefined).
+        for key in varSubDict:
+            value = varSub(varSubDict[key], False)
+            if value is None:
+                print(gError)
+                return
+            varSubDict[key] = value
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme1.xml' , pretty_print=True)
+            tree.write('eraseme.xml' , pretty_print=True)
 
         # We have all the <dict> elments resolved.
         # Now we need to recursively traverse the XML file
@@ -1141,45 +1191,42 @@ class Build:
         # in a tag; in this case, an exception will be raised,
         # and we bail.
         try:
-            replaceKeys(root)
+            replaceKeys(root, False)
         except ValueError as err:
             print(err)
             return
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme2.xml' , pretty_print=True)
+            tree.write('eraseme.xml' , pretty_print=True)
 
-        # Now, we rename all tags as <culled> that have an 'if'
+        # Recursively process 'if' attribute logic for all elements.
+        # We rename all tags as <culled> that have an 'if'
         # attribute that evaluates to False.
         try:
-            cullTags(root)
+            processIfAttributes(root)
         except ValueError as err:
             print(err)
             return
-
+        
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme3.xml' , pretty_print=True)
-        
-        # Now we need one more pass to add <dict> entries whose
-        # {key} values have just been resolved.
-        addDicts(varSubDict , root , None , None)
+            tree.write('eraseme.xml' , pretty_print=True)
 
         # At this point, the XML file is complete with all
         # included files and <dict> values evaluated.
         # We now proceed to process the file.
 
         #######################################################
-        # Assign configuration data.
+        # Process configuration data.
         # Collects flags, includes, objects, sources, etc.
         #######################################################
-        self.cfg = Config(self , root)
+        self.cfg = Config(self, root, self.eleCfg, self.eleToolchain)
         if not self.cfg.initialized:
             return
 
         # If compiling single file; error if it's in the source list.
-        if self.singleFile != 'None':
+        if self.singleFile is not None:
             found = False
             src:SourceFile
             for src in self.cfg.sources:
@@ -1189,10 +1236,22 @@ class Build:
             if not found:
                 print(f'Single file {self.singleFile} not in source file list')
                 return
+        
+        #######################################################
+        # Assign any <dict> values that are 'undefined'
+        #######################################################
+        varSubDict['ccprefix'] = self.cfg.ccPrefix
 
-        # Set toochain data.
-        if not addToolChain(self.cfg , root):
+        # Do final substitution all must be defined.
+        try:
+            replaceKeys(root, True)
+        except ValueError as err:
+            print(err)
             return
+        
+        # Show the work.
+        if printIntermediateXml:
+            tree.write('eraseme.xml' , pretty_print=True)
 
         # Success.
         self.initialized = True
@@ -1229,13 +1288,13 @@ class Build:
                             proj.makeClean, 
                             proj.prebuilds, 
                             proj.subs,
-                            'None',         # Inc file
+                            [],         # Inc files
                             varSubDict,
-                            'None')         # Single file
+                            None)       # Single file
             # Return.
             os.chdir(cur_dir)
             if result != 0:
-                print(f'Unable to pre-build {proj.name}')
+                print(f'Unable to pre-build project in {proj.path}')
                 return 1
         # Success.
         return 0
@@ -1274,7 +1333,7 @@ class Build:
 
             # If compiling at least one file; we will need to link, unless
             # we're just compiling one file (-o command line parameter).
-            if self.singleFile == 'None':
+            if self.singleFile is None:
                 needLink = True
             else:
                 # Continue if not file match.
@@ -1308,20 +1367,28 @@ class Build:
 
             # If assembly file.
             if srcFile.type == FileType.AFILE:
-                for define in self.cfg.aflags:
+                for define in self.cfg.flags.a:
+                    ccmd += f' {define}'
+                for define in srcFile.flags.a:
                     ccmd += f' {define}'
             # Else C/C++.
             else:
                 # Add common C/C++ flags.
-                for define in self.cfg.ccflags:
+                for define in self.cfg.flags.cc:
+                    ccmd += f' {define}'
+                for define in srcFile.flags.cc:
                     ccmd += f' {define}'
                 # Add C flags.
                 if srcFile.type == FileType.CFILE:
-                    for define in self.cfg.cflags:
+                    for define in self.cfg.flags.c:
+                        ccmd += f' {define}'
+                    for define in srcFile.flags.c:
                         ccmd += f' {define}'
                 # Add C++ flags.
                 else:
-                    for define in self.cfg.cppflags:
+                    for define in self.cfg.flags.cpp:
+                        ccmd += f' {define}'
+                    for define in srcFile.flags.cpp:
                         ccmd += f' {define}'
 
             # Add the include options.
@@ -1345,6 +1412,7 @@ class Build:
             ccmd += f' {srcFile.path}'
 
             # Add output file name: -o src/cdom.o ../src/cdom.c
+            # We're adding an output prefix as a niche feature (libmicrohttpd).
             ccmd += f' -o {self.configuration}/src/{srcFile.baseName}.o'
 
             # Execute compiler command and show the work.
@@ -1355,6 +1423,7 @@ class Build:
             # Return failure if compile error.
             if result != 0:
                 return False , False
+            
             # Create mtime file from generated dependency file.
             makeMtime(self , srcFile)
 
@@ -1379,7 +1448,7 @@ class Build:
                 arcmd = f'{self.cfg.ccPrefix}g++'
                 arcmd += ' -shared'
                 # Linker flags
-                for flag in self.cfg.lflags:
+                for flag in self.cfg.flags.l:
                     arcmd += f' {flag}'
                 arcmd += f' -o {self.configuration}/{self.cfg.artifactFullName}'
             else:
@@ -1410,7 +1479,7 @@ class Build:
             linkCmd = f'{self.cfg.ccPrefix}g++'
 
             # Add linker flag options.
-            for ldefine in self.cfg.lflags:
+            for ldefine in self.cfg.flags.l:
                 linkCmd += f' {ldefine}'
 
             # Add source files.
@@ -1468,26 +1537,34 @@ class Build:
             return 0
         
     def doPostOps(self):
-        retval = 0
-        for postop in self.postop:
-            result = os.system(postop)
-            if result != 0:
-                retval = 1
-                print(f'ERROR: <post_op> failed: {postop}')
-        return retval
+        opList = self.root.findall('post_op')
+        for op in opList:
+            cmd = op.text
+            failed = False
+            result = os.system(cmd)
+            flag = op.get('result')
+            if flag is not None:
+                flag = int(flag)
+                failed = flag != result
+            if not failed:
+                print(f'<post_op> command : {cmd} : returned {result}')
+            else:
+                print(f'ERROR: <post_op> command : {cmd} : returned {result}')
+                return 1
+        return 0
 
 ###############################################################
 # Entry point for pyMake.
 # Creates a PyMakeBuild object and builds the project(s)
 #
-def pyMake(cfgfile:str, 
-           config:str, 
-           clean:bool, 
-           prebuilds:bool, 
-           subs:'list[str]', 
-           dictFile:str='None', 
-           subDict:dict=None, 
-           singleFile:str='None')->int:
+def pyMake(cfgfile:str,
+           config:str,
+           clean:bool,
+           prebuilds:bool,
+           subs:'list[str]' = [],
+           incs:'list[str]' = [],
+           subDict:dict = None,
+           singleFile:str = None)->int:
 
     # Where are we?
     print(f'\npyMake executing in {os.getcwd()}')
@@ -1499,7 +1576,7 @@ def pyMake(cfgfile:str,
                       clean, 
                       prebuilds, 
                       subs, 
-                      dictFile, 
+                      incs, 
                       subDict, 
                       singleFile)
         if not build.initialized:
@@ -1527,8 +1604,8 @@ def pyMake(cfgfile:str,
     
     # Return if library and no linking required.
     retval:int = 0
-    if (build.cfg.library and not needLink) or (singleFile != 'None'):
-        if singleFile == 'None':
+    if (build.cfg.library and not needLink) or (singleFile is not None):
+        if singleFile is None:
             retval = build.doPostOps()
         print(f'\npyMake returning from {os.getcwd()}')
         return retval
@@ -1561,8 +1638,9 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--file',     help='XML Configuration file to use:            default=pyMake.xml',default='pyMake.xml')
     parser.add_argument('-g', '--cfg',      help='Build configuration used in XML file:     default=Release',default='Release')
     parser.add_argument('-o', '--one',      help='Compile just the specified file:          default=None',default='None')
-    parser.add_argument('-s', '--sub',      help='Append semicolon delimited key/value pair to variable substitution dictionary',action='append',default=[])
-    parser.add_argument('-i', '--inc',      help='Include XML <dict> file:                  default=None',default='None')
+    parser.add_argument('-s', '--sub',      help='Semicolon delimited variable substitution key:value pair',action='append',default=[])
+    parser.add_argument('-i', '--inc',      help='Include XML <dicts> file:                 ',action='append',default=[])
+    parser.add_argument('-x', '--xml',      help='Print intermediate pyMake.xml iterations: default=False',action='store_true')
                     
     try:
         args = parser.parse_args()
@@ -1571,12 +1649,44 @@ if __name__ == "__main__":
         args.cfg = args.cfg.strip()
         for i in range(len(args.sub)):
             args.sub[i] = args.sub[i].lstrip()
+        for i in range(len(args.inc)):
+            args.inc[i] = args.inc[i].lstrip()
         args.one = args.one.strip()
 
         # Return here if just version.
         if args.version:
             print(f'pyMake.py version {REVISION}')
             sys.exit(0)
+
+        # Save for return.
+        cwd_main = os.getcwd()
+
+        # Change if not compiling a single file.
+        if args.one == 'None':
+            args.one = None
+        # Whether compiling a single file or a project, we must
+        # be able to locate the pyMake XML file. We start at the
+        # current location and move up the path until we find
+        # the correct file.
+        xmlFound = False
+        while True:
+            # print(os.getcwd())
+            if os.path.exists(args.file):
+                xmlFound = True
+                break
+            cur_dir = os.getcwd()
+            # Break if we can't get any higher.
+            if cur_dir == '/':
+                break
+            os.chdir('../')
+        if not xmlFound:
+            print(f'ERROR: Cannot find XML configuration file {args.file}')
+            sys.exit(1)
+
+        # If we get here, the pyMake XML file is in the current folder.
+
+        # Pring intermediate xml files?
+        printIntermediateXml = args.xml
 
         # Show the arguments.
         print('')
@@ -1588,21 +1698,22 @@ if __name__ == "__main__":
         print(f'    one:            {args.one}')
         print(f'    sub:            {args.sub}')
         print(f'    inc:            {args.inc}')
+        print(f'    xml:            {args.xml}')
 
         # Execute and back.
-        cwd_main = os.getcwd()
         retval_main = pyMake(args.file, 
                              args.cfg, 
                              args.clean, 
                              args.prebuild, 
-                             args.sub, 
-                             args.inc, 
+                             args.sub,      # Variable subs or emtpy array 
+                             args.inc,      # File names or empty array
                              None,          # No dictionary from command line
-                             args.one)
+                             args.one)      # File name or None
         os.chdir(cwd_main)
         print(f'\npyMake exiting with code {retval_main}')
         sys.exit(retval_main)
 
     except Exception as e:
         print(f'ERROR: pyMake: Exception encountered: {e}')
+        os.chdir(cwd_main)
         sys.exit(1)

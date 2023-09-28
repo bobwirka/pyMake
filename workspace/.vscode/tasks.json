@@ -9,8 +9,10 @@
 			 */
 			"type": "shell",
 			"label": "Compile active file",
-			"command": "cd $(dirname ${fileDirname}) ; pyMake.py -c -g Debug -s target:x86 -o ${fileBasename}",
-			"options": {},
+			"command": "cd ${fileDirname} ; pyMake.py -c -g Debug -s target:x86 -o ${fileBasename}",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
 			"problemMatcher": [],
 			"group": {
 				"kind": "build",
@@ -23,8 +25,10 @@
 			 */
 			"type": "shell",
 			"label": "Compile project",
-			"command": "cd $(dirname ${fileDirname}) ; pyMake.py -c -p -g Debug -s target:x86",
-			"options": {},
+			"command": "cd ${fileDirname} ; pyMake.py -c -p -g Debug -s target:x86",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
 			"problemMatcher": [],
 			"group": {
 				"kind": "build",
@@ -40,7 +44,9 @@
 			"type": "shell",
 			"label": "Show ${fileDirname}, $(dirname ${fileDirname}), $(dirname $(dirname ${fileDirname}))",
 			"command": "echo ${fileDirname} ; echo $(dirname ${fileDirname}) ; echo $(dirname $(dirname ${fileDirname}))",
-			"options": {},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
 			"problemMatcher": [],
 			"group": {
 				"kind": "build",
@@ -51,7 +57,9 @@
 			"type": "shell",
 			"label": "Show ${file}, ${fileWorkspaceFolder}, ${workspaceFolder}",
 			"command": "echo ${file} ; echo ${fileWorkspaceFolder} ; echo ${workspaceFolder}",
-			"options": {},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
 			"problemMatcher": [],
 			"group": {
 				"kind": "build",

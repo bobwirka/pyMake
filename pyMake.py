@@ -1191,7 +1191,7 @@ class Build:
         # in a tag; in this case, an exception will be raised,
         # and we bail.
         try:
-            replaceKeys(root, False)
+            replaceKeys(root, True)
         except ValueError as err:
             print(err)
             return

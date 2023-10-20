@@ -107,7 +107,8 @@ varSubDict:dict = {}
 
 # Global error.
 # Setting this to any value should terminate the program.
-gError:str | None = None
+# _RCW_: 3.10-->3.8
+gError:str = None
 
 ###############################################################
 # XML File parsing.
@@ -145,7 +146,10 @@ def getVarSub(match:re.Match, required:bool=True)->str:
         retval = '{' + key + '}'
     return retval
 
-def varSub(expression:str, required:bool=True)->str | None:
+# Does the variable substitution.
+# Returns 'str' or None if undefined key.
+# _RCW_: 3.10-->3.8
+def varSub(expression:str, required:bool=True)->str:
     # Must declare here.
     global gError
 
@@ -176,7 +180,8 @@ def varSub(expression:str, required:bool=True)->str | None:
 # their key:values to the variable substitution dictionary.
 # Comments, 'added' and 'culled' elements are ignored.
 #
-def addDicts(varDict:dict, ele:'etree.Element', config:str|None=None, toolchain:str|None=None, required:bool=False):
+# _RCW_: 3.10-->3.8
+def addDicts(varDict:dict, ele:'etree.Element', config:str=None, toolchain:str=None, required:bool=False):
     for child in ele:
         # Ignore comments, added, and culled elements.
         tag = str(child.tag)
@@ -458,7 +463,7 @@ class FileType(IntEnum):
 # Append a source file.
 # If duplicate name, the existing source will be replaced.
 #
-def srcAppend(sourcList:list['SourceFile'], newSource:'SourceFile'):
+def srcAppend(sourcList:"list['SourceFile']", newSource:'SourceFile'):
     source:SourceFile
     for i in range(len(sourcList)):
         source = sourcList[i]
@@ -925,7 +930,7 @@ def checkIfTag(expression:str)->bool:
 #   False   If not required and a {key} is undefined.
 #   None    If required and a {key} is undefined.
 #
-def checkIfElement(ele:etree.Element, required:bool=False)->bool | None:
+def checkIfElement(ele:etree.Element, required:bool=False)->bool:
     # Return True if the element is not conditional.
     if 'if' not in ele.attrib:
         return True

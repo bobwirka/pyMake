@@ -37,6 +37,8 @@ The main features of pyMake are:
 
 ## Installation
 
+NOTE: You need Python 3.8 or later to run pyMake.py.
+
 You should copy pyMake.py to a folder in your $PATH environment variable and  
 make it executable; /usr/local/bin is a good choice.
 

@@ -111,6 +111,12 @@ varSubDict:dict = {}
 gError:str = None
 
 ###############################################################
+# Return the string value of an element.
+#
+def eleToString(ele):
+    return etree.tostring(ele, pretty_print=True).decode('utf-8')
+
+###############################################################
 # XML File parsing.
 #
 def parseFile(filePath):
@@ -194,7 +200,7 @@ def addDicts(varDict:dict, ele:'etree.Element', config:str=None, toolchain:str=N
         result = checkIfElement(child, required)
         # None: evaluation required, but has undefined {key}.
         if result is None:
-            eleString = etree.tostring(child, pretty_print=True).decode('utf-8')
+            eleString = eleToString(child)
             raise ValueError(f'ERROR: Unknown key in <dict>: {eleString}')
             # NOTREACHED
         # False: no 'if', or 'if' evaluation is False.
@@ -332,7 +338,7 @@ def addToolChain(cfg:'Config' , eleToolchain:'etree.Element') -> bool:
         print(f'ERROR:Compiler {ccPrefix}gcc not present')
         return False
     else:
-        print(f'ERROR:Compiler {ccPrefix}gcc found')
+        print(f'Compiler {ccPrefix}gcc found')
 
     # Assign path, prefix, and compiler command.
     cfg.compilerPath = compilerPath
@@ -528,7 +534,19 @@ class SourceFile:
 def GetConfigAndToolchain(eleRoot:'etree.Element', config:str):
     # Get all the available configurations.
     eleList = eleRoot.findall('configuration')
-    # Assume we don't find it.
+    # Run through them and check for 'if' conditions.
+    # If False, the element will have been marked as culled.
+    for eleCfg in eleList:
+        result = checkIfElement(eleCfg, True)
+        if result is False:
+            continue
+        if result is None:
+            eleString = eleToString(eleCfg)
+            print(f'ERROR: Unknown key in <dict>: {eleString}')
+            return None, None
+    # Rescan to get the list after culling.
+    eleList = eleRoot.findall('configuration')
+    # Assume we don't find the correct one.
     result = False
     for eleCfg in eleList:
         cfgName = eleCfg.get('name')
@@ -1067,7 +1085,7 @@ class Build:
             result = checkIfElement(op, True)
             # NONE: Conditional present with undefined {key}.
             if result is None:
-                eleString = etree.tostring(op, pretty_print=True).decode('utf-8')
+                eleString = eleToString(op)
                 print(f'ERROR: Unknown key in <pre_op>: {eleString}')
                 return
             # FALSE: Conditional present, and evaluates to False; has been be marked 'culled'.
@@ -1142,7 +1160,11 @@ class Build:
                     root.append(deepcopy(child))
             # Mark as added.
             inc.tag = f'{inc.tag}-added'
-
+        
+        # Show the work.
+        if printIntermediateXml:
+            tree.write('eraseme.xml' , pretty_print=True)
+        
         # Get the <configuration> and <toolchain> elements
         # for this project. Non-matching elements will be
         # marked 'culled'.

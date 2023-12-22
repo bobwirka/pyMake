@@ -563,17 +563,19 @@ def GetConfigAndToolchain(eleRoot:'etree.Element', config:str):
     # Rescan to get the list after culling.
     eleList = eleRoot.findall('configuration')
     # Assume we don't find the correct one.
-    result = False
+    result = None
     for eleCfg in eleList:
         cfgName = eleCfg.get('name')
         if cfgName == config:
-            result = True
+            result = eleCfg
         else:
             eleCfg.tag = 'configuration-culled'
     # Check result.
-    if not result:
+    if result is None:
         print(f'ERROR:Project configuration {config} not found')
         return None, None
+    # Got the configuration.
+    eleCfg = result
     # Get the toolchain name.
     eleToolchain = eleCfg.find('toolchain')
     if eleToolchain is None:
@@ -583,17 +585,19 @@ def GetConfigAndToolchain(eleRoot:'etree.Element', config:str):
     # Get all the available toolchains.
     eleList = eleRoot.findall('toolchain')
     # Assume we don't find it.
-    result = False
+    result = None
     for eleToolchain in eleList:
         name = eleToolchain.get('name')
         if name == toolChainName:
-            result = True
+            result = eleToolchain
         else:
             eleToolchain.tag = 'toolchain-culled'
     # Check result.
-    if not result:
+    if result is None:
         print(f'ERROR:Project configuration {config} toolchain {toolChainName} not found')
         return None, None
+    # Got the toolchain.
+    eleToolchain = result
     # Found both; return.
     return eleCfg, eleToolchain
 

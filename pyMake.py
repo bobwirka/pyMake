@@ -187,38 +187,54 @@ def varSub(expression:str, required:bool=True)->str:
 # Comments, 'added' and 'culled' elements are ignored.
 #
 # _RCW_: 3.10-->3.8
-def addDicts(varDict:dict, ele:'etree.Element', config:str=None, toolchain:str=None, required:bool=False):
+
+###############################################################
+# Add a single <dict> element.
+#
+def addDict(varDict:dict, child:'etree.Element', required:bool):
+    # Check for 'if'; evaluation.
+    result = checkIfElement(child, required)
+    # None: evaluation required, but has undefined {key}.
+    if result is None:
+        eleString = eleToString(child)
+        raise ValueError(f'ERROR: Unknown key in <dict>: {eleString}')
+        # NOTREACHED
+    # False: no 'if', or 'if' evaluation is False.
+    if result is False:
+        return
+    # True: no 'if', or 'if' evaluation is True.
+    key: str = child.get('key')
+    if key is None:
+        print(f'ERROR: <dict> elmenent has no key')
+        return
+    value = child.text
+    if value is None:
+        print(f'ERROR: <dict> with key {key} has no value')
+        return
+    varDict[key] = value
+    # Mark as added.
+    child.tag = f'{child.tag}-added'
+
+###############################################################
+# Recursively find and add <dict> elements.
+#   recursive_function(item_with_subItems)
+#       process the item_with_subItems
+#       for each subItem:
+#           recursive_function(subItem)
+#
+def addDicts(varDict:dict, ele:'etree.Element', required:bool=False):
+    # Get tag name.
+    tag = str(ele.tag)
+    # Ignore these.
+    if 'Comment' in tag or 'culled' in tag or 'added' in tag:
+        return
+    # Process if <dict>.
+    if tag == 'dict':
+        addDict(varDict, ele, required)
+        return
+    # Now process any children.
     for child in ele:
-        # Ignore comments, added, and culled elements.
-        tag = str(child.tag)
-        if 'Comment' in tag or 'culled' in tag or 'added' in tag:
-            continue
-        # Continue if not <dict>.
-        if tag != 'dict':
-            continue
-        # Check for 'if'; evaluation.
-        result = checkIfElement(child, required)
-        # None: evaluation required, but has undefined {key}.
-        if result is None:
-            eleString = eleToString(child)
-            raise ValueError(f'ERROR: Unknown key in <dict>: {eleString}')
-            # NOTREACHED
-        # False: no 'if', or 'if' evaluation is False.
-        if result is False:
-            continue
-        # True: no 'if', or 'if' evaluation is True.
-        key:str = child.get('key')
-        if key is None:
-            print(f'ERROR: <dict> elmenent has no key')
-            continue
-        value = child.text
-        if value is None:
-            print(f'ERROR: <dict> with key {key} has no value')
-            continue
-        varDict[key] = value
-        # Mark as added.
-        child.tag = f'{child.tag}-added'
-        continue
+        addDicts(varDict, child, required)
 
 ###############################################################
 # Check dependencies for change.
@@ -552,7 +568,6 @@ def GetConfigAndToolchain(eleRoot:'etree.Element', config:str):
         cfgName = eleCfg.get('name')
         if cfgName == config:
             result = True
-            break
         else:
             eleCfg.tag = 'configuration-culled'
     # Check result.
@@ -573,7 +588,6 @@ def GetConfigAndToolchain(eleRoot:'etree.Element', config:str):
         name = eleToolchain.get('name')
         if name == toolChainName:
             result = True
-            break
         else:
             eleToolchain.tag = 'toolchain-culled'
     # Check result.
@@ -1075,7 +1089,7 @@ class Build:
                 return
             # Add dictionay entries; no {keys} allowed.
             print(f'Adding dictionary file {inc}')
-            addDicts(varSubDict, incRoot, None, None, True)
+            addDicts(varSubDict, incRoot, True)
 
         # Apply any operations to be done before we proceed.
         # <pre_op> elements must have defined {keys}.
@@ -1151,7 +1165,7 @@ class Build:
             # If only <dict> elements, add them directly to the dictionary.
             if incRoot.tag == 'dicts':
                 print(f'Adding <dict> elements from {incPath}')
-                addDicts(varSubDict, incRoot, None, None)
+                addDicts(varSubDict, incRoot)
             # Else include all as part of configuraion.
             else:
                 print(f'Adding include file {incPath}')
@@ -1188,7 +1202,7 @@ class Build:
         # These may be used directly below by <include> elements.
         # {keys} can be undefined.
         try:
-            addDicts(varSubDict, root, None, None, None)
+            addDicts(varSubDict, root)
         except ValueError as err:
             print(err)
             return

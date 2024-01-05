@@ -5,7 +5,7 @@
     the <include> tag.
 -->
 <pyInc>
-    <toolchain name="i686-w64-mingw32">
+    <toolchain name="w32">
         <compilerPath>/usr/bin</compilerPath>
         <compilerPrefix>i686-w64-mingw32-</compilerPrefix>
         <ccflag>-D_POSIX_THREADS</ccflag>
@@ -19,12 +19,12 @@
         <lflag>-static-libstdc++</lflag>
     </toolchain>
     <configuration name="Debug">
-        <toolchain>i686-w64-mingw32</toolchain>
+        <toolchain>w32</toolchain>
         <optimization>-O0</optimization>
         <debugging>-g3</debugging>
     </configuration>
     <configuration name="Release">
-        <toolchain>i686-w64-mingw32</toolchain>
+        <toolchain>w32</toolchain>
         <optimization>-O1</optimization>
         <debugging>-g3</debugging>
     </configuration>

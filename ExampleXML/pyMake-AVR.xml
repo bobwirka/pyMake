@@ -11,7 +11,6 @@
 <project artifact="avrapp.hex" type="executable">
     <dict key="tools">/opt/compilers/avr/avr8</dict>
     <toolchain name="avr">
-        <!-- Tools -->
         <compilerPath>{tools}/bin</compilerPath>
         <compilerPrefix>avr-</compilerPrefix>
         <!-- Assembler flags -->

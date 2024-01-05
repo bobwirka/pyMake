@@ -5,18 +5,22 @@
     the <include> tag.
 -->
 <pyInc>
-    <toolchain name="native">
+    <toolchain name="x86">
         <compilerPath>/usr/bin</compilerPath>
-        <cppflag>-std=c++98</cppflag>
+        <cflag>-std=c11</cflag>
+        <cppflag>-std=c++11</cppflag>
+        <ccflag>-D_GNU_SOURCE</ccflag>
+        <ccflag>-D_POSIX_C_SOURCE</ccflag>
+        <ccflag>-D_POSIX_THREADS</ccflag>
         <ccflag>-D__UNIX__</ccflag>
     </toolchain>
     <configuration name="Debug">
-        <toolchain>native</toolchain>
+        <toolchain>x86</toolchain>
         <optimization>-O0</optimization>
         <debugging>-g3</debugging>
     </configuration>
     <configuration name="Release">
-        <toolchain>native</toolchain>
+        <toolchain>x86</toolchain>
         <optimization>-O1</optimization>
         <debugging>-g3</debugging>
     </configuration>

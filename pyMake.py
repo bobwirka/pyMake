@@ -93,8 +93,12 @@ Revision History.
             Have -x command line parameter that prints intermediate xml results.
 
             There can be more than one -i included xml file on the command line.
+
+1.0.10      11-Jan-2024     RCW
+
+            Added <group if=""> element for grouped elements.
 """
-REVISION:str = '1.0.9'
+REVISION:str = '1.0.10'
 
 # If true, <objects> and <prebuilds> are read from within <configuration>,
 # otherwise at the <project> (root) level.
@@ -1182,7 +1186,40 @@ class Build:
         # Show the work.
         if printIntermediateXml:
             tree.write('eraseme.xml' , pretty_print=True)
+
+        # Now look for <group> elments.
+        # All <group> elements must have an 'if' conditional.
+        # We replace the <group> element with it's children.
+        groupList = root.xpath('//group')
+        for group in groupList:
+            # Must have 'if'.
+            if 'if' not in group.attrib:
+                print(f'ERROR: <group> element without \'if\' {eleToString(group)}')
+                return
+            # See if this group has a name.
+            if 'name' in group.attrib:
+                group_name = group.get('name')
+            else:
+                group_name = ''
+            # If this <group> is to be included.
+            if checkIfElement(group, True):
+                # Get the children of the <group> element
+                children = group.getchildren()
+                # Replace the <group> element with its children
+                parent_parent = group.getparent()
+                index = parent_parent.index(group)
+                parent_parent.remove(group)
+                comment = etree.Comment(f'<group> {group_name} Included')
+                parent_parent.insert(index, comment)
+                index += 1
+                for child in children:
+                    parent_parent.insert(index, child)
+                    index += 1
         
+        # Show the work.
+        if printIntermediateXml:
+            tree.write('eraseme.xml' , pretty_print=True)
+
         # Get the <configuration> and <toolchain> elements
         # for this project. Non-matching elements will be
         # marked 'culled'.
@@ -1498,7 +1535,7 @@ class Build:
                 arcmd += f' -o {self.configuration}/{self.cfg.artifactFullName}'
             else:
                 # Use archive command.
-                arcmd  = f'{self.cfg.ccPrefix}ar -r'
+                arcmd  = f'{self.cfg.ccPrefix}ar -rcs'
                 # Full path for library artifact.
                 arcmd += f' {self.configuration}/{self.cfg.artifactFullName}'
             # Add compiled source files.

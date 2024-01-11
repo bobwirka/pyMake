@@ -88,7 +88,7 @@ The recommended vscode workspace structure is:
 ## Compiling a project
 
 In the example "HelloWorldSimplest", the pyMake.xml file is:
-```
+```xml
 <!-- 
     Example of hello world that will be compiled 
     to a native x86 application.
@@ -140,7 +140,7 @@ If an XML file is specified with the '-i' command line parameter, the XML file
 must have a root tag of \<dicts>, and only contain other \<dict> elements.
 
 Example \<dict> XML file:
-```
+```xml
     <dicts>
         <dict key="foo">abc</dict>
         <dict key="bar">def</dict>
@@ -153,7 +153,7 @@ An XML element can be enabled or disabled using the 'if' attribute. The value of
 element will not be used.
 
 Examples:
-```
+```xml
     <dict key="boolKeyT>1</dict>
     <dict key="boolKeyF>0</dict>
     <dict key="textKey1">param1</dict>
@@ -168,7 +168,7 @@ Examples:
     <ccflag if="{textKey1}==param1">-D_TESTING</ccgflag>  // Enabled
 ```
 The 'if' attribute can contain logical expressions using ";and'", ";or;" and "()":
-```
+```xml
     <include if="({key1};or;{key2}==value2);and;{key3}>somefile.xml</include>
 ```
 ## Conditional inclusion of grouped elements
@@ -178,7 +178,7 @@ The <group> element MUST have an 'if' conditional.
 If included ('if' is True), the <group> element will be replaced by its child elements.
 
 Example:
-```
+```xml
     <sources>
         <group if="{cond}==foo" name="FOO">
             <file path="foo.c"/>
@@ -199,7 +199,7 @@ make file build for an AT91SAM7X ARM cross compiled project. Cross compiled embe
 systems are notorious for needing obscure compiler flags as well as other
 flags that are specific to the processor or system.
 
-```
+```xml
 <!-- 
     Primary <dict> entries are taken from '-s' command line parameters,
     or from an XML file included with the '-i' command line parameter.

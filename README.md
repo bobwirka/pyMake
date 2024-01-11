@@ -171,6 +171,27 @@ The 'if' attribute can contain logical expressions using ";and'", ";or;" and "()
 ```
     <include if="({key1};or;{key2}==value2);and;{key3}>somefile.xml</include>
 ```
+## Conditional inclusion of grouped elements
+
+You can group elements to be included (or not) using the <group> element.  
+The <group> element MUST have an 'if' conditional.  
+If included ('if' is True), the <group> element will be replaced by its child elements.
+
+Example:
+```
+    <sources>
+        <group if="{cond}==foo" name="FOO">
+            <file path="foo.c"/>
+            o
+            o
+        </group>
+        <group if="{cond}==bar" name="BAR">
+            <file path="bar.c"/>
+            o
+            o
+        </group>
+    </sources>
+```
 ## pyMake.xml Configuration file structure
 
 The structure of pyMake.xml was inspired by watching the output of a compilicated

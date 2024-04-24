@@ -289,6 +289,8 @@ def makeMtime(build:'Build' , srcFile:'SourceFile'):
         file = files[i]
         if '\n' in file:
             files.pop(i)
+        elif file == '':
+            files.pop(i)
         else:
             i += 1
     # Open the mtime file for writing.

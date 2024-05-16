@@ -11,6 +11,7 @@ from copy import deepcopy
 import re
 
 printIntermediateXml: bool = False
+cwd_main: str = ''
 
 """
 Revision History.
@@ -428,6 +429,8 @@ class PreBuild:
         # Get path to target.
         self.path = eleProj.get('path')
         if self.path == None:
+            print(f'\nXML syntax error in {cwd_main}:')
+            print(f'Prebuild path not specified: {eleToString(eleProj)}')
             return
 
         # Use our config filename if not specified.
@@ -1711,7 +1714,7 @@ def pyMake(cfgfile:str,
 # Standalone execution.
 #
 if __name__ == "__main__":
-
+    
     parser = argparse.ArgumentParser(
                     prog = 'pyMake.py',
                     description = 'Compiles an application as specified in the configuration XML file',

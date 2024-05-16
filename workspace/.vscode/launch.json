@@ -12,13 +12,9 @@
     "configurations": [
         {
             /*
-             * This launchconfiguration is for debugging the Debug version of the
-             * HelloWorldThread application.
-             * hello.cpp should be opened in a tab, "RUN AND DEBUG" should be selected
-             * in the left column, and this launch configuration should be selected in the
-             * combo box.
+             * This launchconfiguration is for debugging C/C++ applications.
              */
-            "name": "Debug HelloWorldThread executable",
+            "name": "Debug C/C++",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/HelloWorldThread/Debug/hello",
@@ -43,15 +39,10 @@
         },
         {
             /*
-             * This launch configuration is for debugging pyMake
-             * as it processes the pyMake.xml project configuration
-             * in /workspace/HelloWorldThread.
-             * pyMake.py should be opened in a tab, "RUN AND DEBUG" should be selected
-             * in the left column, and this launch configuration should be selected in the
-             * combo box.
+             * This launch configuration is for debugging Python applications.
              */
-            "name": "Debug HelloWorldThread pyMake.xml",
-            "type": "python",
+            "name": "Debug Python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",

@@ -6,6 +6,9 @@
         <ccflag></ccflag>
         <cppflag></cppflag>
         <lflag></lflag>
+        
+    NOTE: The configuration, typically Release or Debug, is made available for variable  
+    substitution as the {config} key.
 -->
 <project artifact="name[.ext]" type="executable/library">
     <dict key="key">value</dict>

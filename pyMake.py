@@ -98,8 +98,19 @@ Revision History.
 1.0.10      11-Jan-2024     RCW
 
             Added <group if=""> element for grouped elements.
+
+1.0.11      2-Jul-2024      RCW
+
+            Added lang="c" and lang="cpp" attributes to <includes><path> elements.
+            If present, the path will only be added to the compiler include path
+            if the language matches the source file language.
+            If not present, the path will always be added to the compiler include path.
+            The Config.includes array now becomes an array of tuples with the
+            first element being the path and the second element being the language.
+            The default second element is None.
+
 """
-REVISION:str = '1.0.10'
+REVISION:str = '1.0.11'
 
 # If true, <objects> and <prebuilds> are read from within <configuration>,
 # otherwise at the <project> (root) level.
@@ -240,6 +251,28 @@ def addDicts(varDict:dict, ele:'etree.Element', required:bool=False):
     # Now process any children.
     for child in ele:
         addDicts(varDict, child, required)
+
+###############################################################
+# Run through varSubDict and replace {var} values with any
+# that have already been defined.
+#
+def replace_vars():
+    # Regular expression to find {var} patterns
+    var_pattern = re.compile(r'\{(\w+)\}')
+
+    def replace_value(value):
+        if isinstance(value, str):
+            # Find all {var} patterns in the string
+            matches = var_pattern.findall(value)
+            for match in matches:
+                # Replace {var} with the corresponding value from the dictionary
+                if match in varSubDict:
+                    value = value.replace(f'{{{match}}}', varSubDict[match])
+        return value
+
+    # Iterate over each key-value pair in the dictionary
+    for key in varSubDict:
+        varSubDict[key] = replace_value(varSubDict[key])
 
 ###############################################################
 # Check dependencies for change.
@@ -485,6 +518,7 @@ class FileType(IntEnum):
     AFILE = 0
     CFILE = 1
     CPPFILE = 2
+    ANYFILE = 3
     UNKNOWN = -1
 
 ###############################################################
@@ -774,8 +808,13 @@ class Config:
             for ele in eleList:
                 # Get element text.
                 text = ele.text
-                # Add to list.
-                self.includes.append(text)
+                # Get language attribute, if present.
+                lang = ele.get('lang')
+                # Create tuple and add to list.
+                if lang is None:
+                    self.includes.append((text, None))
+                else:
+                    self.includes.append((text, lang))
 
         #######################################################
         # Get source files.
@@ -1138,6 +1177,31 @@ class Build:
                 return
             op.tag = f'{op.tag}-added'
 
+        # Proces any top level <dict> elements.
+        dictList = [child for child in root if child.tag == 'dict']
+        for dict in dictList:
+            # Check element for conditional; MUST be evaluated if present.
+            result = checkIfElement(dict, True)
+            # NONE: Conditional present with undefined {key}.
+            if result is None:
+                eleString = eleToString(dict)
+                print(f'ERROR: Unknown key in <dict>: {eleString}')
+                return
+            # FALSE: Conditional present, and evaluates to False; has been be marked 'culled'.
+            if result is False:
+                continue
+            # TRUE: Conditional not present or IS present and evaluates to True
+            key = dict.get('key')
+            value = dict.text
+            value = varSub(value, False)
+            if value is None:
+                print(f'ERROR: Unknown key in <dict>: {dict.text}')
+                return
+            varSubDict[key] = value
+            dict.tag = f'{dict.tag}-added'
+            # Replace {var} values in varSubDict if available.
+            replace_vars()
+
         # Add any <include> files.
         # Appends a deep copy of each element to the root.
         # Using variable substitution here for file names
@@ -1187,6 +1251,8 @@ class Build:
                     root.append(deepcopy(child))
             # Mark as added.
             inc.tag = f'{inc.tag}-added'
+            # Replace {var} values in varSubDict if available.
+            replace_vars()
         
         # Show the work.
         if printIntermediateXml:
@@ -1394,10 +1460,6 @@ class Build:
     #   $ gcc [options] [source files] [object files] [-o output file]
     #
     def doCompile(self)->'bool,bool':
-        # Create include string used for all source files.
-        ccmd_inc = ''
-        for include in self.cfg.includes:
-            ccmd_inc += f' -I{include}'
 
         # Assume we will not compile ANY source files.
         needLink:bool = False
@@ -1405,6 +1467,31 @@ class Build:
         # For each source file.
         srcFile:SourceFile
         for srcFile in self.cfg.sources:
+
+            # If compiling at least one file; we will need to link, unless
+            # we're just compiling one file (-o command line parameter).
+            if self.singleFile is None:
+                needLink = True
+            else:
+                # Continue if not file match.
+                if srcFile.filename != self.singleFile:
+                    continue
+
+            # Create include string tailored to the source file.
+            ccmd_inc = ''
+            for include in self.cfg.includes:
+                # If language specific.
+                if include[1] is not None:
+                    if srcFile.type == FileType.CFILE and include[1] == 'c':
+                        ccmd_inc += f' -I{include[0]}'
+                    elif srcFile.type == FileType.CPPFILE and include[1] == 'cpp':
+                        ccmd_inc += f' -I{include[0]}'
+                    else:
+                        print(f'ERROR: Unknow language {include[1]} in <includes><path> element')
+                        return False,False
+                else:
+                    ccmd_inc += f' -I{include[0]}'
+
             # Only check dependencies if not cleaning.
             if not self.makeClean:
                 # Check for mtime file.
@@ -1416,15 +1503,6 @@ class Build:
                     compile = checkMtime(self , srcFile)
                 # Continue if compile is false.
                 if not compile:
-                    continue
-
-            # If compiling at least one file; we will need to link, unless
-            # we're just compiling one file (-o command line parameter).
-            if self.singleFile is None:
-                needLink = True
-            else:
-                # Continue if not file match.
-                if srcFile.filename != self.singleFile:
                     continue
 
             # Create start of compiler string.
@@ -1513,6 +1591,10 @@ class Build:
             
             # Create mtime file from generated dependency file.
             makeMtime(self , srcFile)
+
+            # If single file, break.
+            if self.singleFile is not None:
+                break
 
         # Return with link yes/no.
         return True , needLink

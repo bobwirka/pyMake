@@ -313,8 +313,13 @@ flags that are specific to the processor or system.
         Where to look for header files.
     -->
     <includes>
+        <!--For all source-->
         <path>../Lib1/src</path>
         <path>../Lib2/src</path>
+        <!--Only for 'c' source-->
+        <path lang="c">../Lib3/src></path>
+        <!--Only for 'cpp' source-->
+        <path lang="cpp">../Lib3/src></path>
     </includes>
     <!-- 
         Source files to be compiled.

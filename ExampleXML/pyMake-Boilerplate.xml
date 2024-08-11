@@ -39,6 +39,8 @@
     </configuration>
     <includes>
         <path></path>
+        <path lang="c"></path>
+        <path lang="cpp"></path>
     </includes>
     <objects>
         <obj></obj>

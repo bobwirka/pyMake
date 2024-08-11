@@ -1,83 +1,70 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-		{
-			/*
-			 * This will compile the file currently being edited.
-			 * The file must be one of the supported types (.a,.c.cpp), and
-			 * it must be included in the <sources> of the project.
-			 */
-			"type": "shell",
-			"label": "Compile active file",
-			"command": "cd ${fileDirname} ; pyMake.py -c -g Debug -s target:x86 -o ${fileBasename}",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		},
-		{
-			/*
-			 * This will compile and link the project of the file currently being edited.
-			 */
-			"type": "shell",
-			"label": "Compile project",
-			"command": "cd ${fileDirname} ; pyMake.py -c -p -g Debug -s target:x86",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		/*
-		 * These tasks are for showing the values built into the vscode system.
-		 * Open a source file in the editor, and run Terminal->Run Task->Select task from 
-		 * the drop down by the label text.
-		 */
-		{
-			"type": "shell",
-			"label": "Show ${fileDirname}, $(dirname ${fileDirname}), $(dirname $(dirname ${fileDirname}))",
-			"command": "echo ${fileDirname} ; echo $(dirname ${fileDirname}) ; echo $(dirname $(dirname ${fileDirname}))",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		{
-			"type": "shell",
-			"label": "Show ${file}, ${fileWorkspaceFolder}, ${workspaceFolder}",
-			"command": "echo ${file} ; echo ${fileWorkspaceFolder} ; echo ${workspaceFolder}",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		{
-			"type": "shell",
-			"label": "Show ${workspaceFolder},$(dirname ${workspaceFolder}),${workspaceFolderBasename}",
-			"command": "echo ${workspaceFolder} ; echo $(dirname ${workspaceFolder}) ; echo ${workspaceFolderBasename}",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		}
-	]
+        {
+            "type": "shell",
+            "label": "Compile active file",
+            "command": "cd ${fileDirname} ; pyMake.py -c -g Debug -s target:x86 -o ${fileBasename}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "type": "shell",
+            "label": "Compile project",
+            "command": "cd ${fileDirname} ; pyMake.py -c -p -g Debug -s target:x86",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "type": "shell",
+            "label": "Show ${fileDirname}, $(dirname ${fileDirname}), $(dirname $(dirname ${fileDirname}))",
+            "command": "echo ${fileDirname} ; echo $(dirname ${fileDirname}) ; echo $(dirname $(dirname ${fileDirname}))",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "type": "shell",
+            "label": "Show ${file}, ${fileWorkspaceFolder}, ${workspaceFolder}",
+            "command": "echo ${file} ; echo ${fileWorkspaceFolder} ; echo ${workspaceFolder}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "type": "shell",
+            "label": "Show ${workspaceFolder},$(dirname ${workspaceFolder}),${workspaceFolderBasename}",
+            "command": "echo ${workspaceFolder} ; echo $(dirname ${workspaceFolder}) ; echo ${workspaceFolderBasename}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ]
 }

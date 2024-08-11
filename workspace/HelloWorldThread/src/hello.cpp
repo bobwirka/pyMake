@@ -8,6 +8,14 @@
 #include    <mstime.h>
 
 
+/**
+ * Class to get the current time in milliseconds.
+ * It has a 64 bit property that keeps the last time in milliseconds.
+*/
+class GetTime
+{
+};
+
 void* printThread(void* args)
 {
     int         i;

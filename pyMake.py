@@ -109,8 +109,12 @@ Revision History.
             first element being the path and the second element being the language.
             The default second element is None.
 
+1.0.12      12-Aug-2024     RCW
+
+            Upped the revision for syncing with server.
+
 """
-REVISION:str = '1.0.11'
+REVISION:str = '1.0.12'
 
 # If true, <objects> and <prebuilds> are read from within <configuration>,
 # otherwise at the <project> (root) level.

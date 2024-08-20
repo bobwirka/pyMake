@@ -320,6 +320,8 @@ flags that are specific to the processor or system.
         <path lang="c">../Lib3/src></path>
         <!--Only for 'cpp' source-->
         <path lang="cpp">../Lib3/src></path>
+        <!--Only for 'asm' source-->
+        <path lang="asm">../Lib3/src></path>
     </includes>
     <!-- 
         Source files to be compiled.
@@ -333,11 +335,23 @@ flags that are specific to the processor or system.
         <file path="lcl/*">
             <exclude>foo.c</exclude>
             <exclude>bar.cpp</exclude>
-            <ccflag>-D_SOMETHING_ELSE_</ccflag>  <!-- Source file specific compiler flags -->
         </file>
+        <!--
+            Individually added/modified source files.
+            If 'somepath' is the same as one of the files in a wildcard,
+            the optimization, debugging, and flags will replace the elements
+            in the wildcard file, otherwise the new file will be added to the
+            list of sources.
+            NOTE: The 'nolink' <lflag> is a special purpose flag. If present
+                  the '.o' file will not be included in a library link.
+                  This would be used place a '.o' file in the same location
+                  as the '.a' library via a <post_op> script.
+        -->
         <file path="somepath">
             <optimization>-O2</optimization>
             <debugging>-g2</debugging>
+            <ccflag>-D_SOMETHING_ELSE_</ccflag>     <!--Compiler or linker flag-->
+            <lflag>nolink</lflag>                   <!--See above-->
         </file>
     </sources>
 </project>

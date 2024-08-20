@@ -8,6 +8,7 @@ import lxml
 from   lxml import etree
 from enum import IntEnum
 from copy import deepcopy
+from typing import List, Tuple
 import re
 
 printIntermediateXml: bool = False
@@ -113,8 +114,20 @@ Revision History.
 
             Upped the revision for syncing with server.
 
+1.0.13      18-Aug-2024     RCW
+
+            I ain't superstitious, but a black cat just crossed my path.
+
+1.0.14      18-Aug-2024     RCW
+
+            Add 'nolink' option for <lflag> element.
+            It will exclude a source from a library archive.
+            Added lang="asm" to <includes><path> elements.
+            Using gcc for assembly language files; the preprocessor
+            can handle #include directives, etc.
+
 """
-REVISION:str = '1.0.12'
+REVISION:str = '1.0.14'
 
 # If true, <objects> and <prebuilds> are read from within <configuration>,
 # otherwise at the <project> (root) level.
@@ -551,7 +564,7 @@ class SourceFile:
         self.path = path
         # Set file type.
         self.type:FileType = FileType.UNKNOWN
-        if self.path.endswith('s'):
+        if self.path.endswith('s') or self.path.endswith('S'):
             self.type = FileType.AFILE
         elif self.path.endswith('c'):
             self.type = FileType.CFILE
@@ -711,7 +724,7 @@ class Config:
         self.debugging = '-g3'
         # Flags.
         self.flags = Flags()
-        # Includes
+        # Includes is a list of Tuples; tuple(0) is path, tuple(1) is language|None.
         self.includes = []
         # Libraries.
         self.objects = []
@@ -851,7 +864,7 @@ class Config:
                 # For each file in folder.
                 for wildName in wildList:
                     # Limit to 'c', 'c++', and 's' files.
-                    if (wildName.endswith('.c')) or (wildName.endswith('.cpp')) or (wildName.endswith('.s')):
+                    if (wildName.endswith('.c')) or (wildName.endswith('.cpp')) or (wildName.endswith('.s') or (wildName.endswith('.S'))):
                         # Ignore if in exclude list.
                         if wildName in excludeNames:
                             continue
@@ -1463,7 +1476,27 @@ class Build:
     # gcc/g++ command line structure:
     #   $ gcc [options] [source files] [object files] [-o output file]
     #
-    def doCompile(self)->'bool,bool':
+    """
+        NOTE: Here is the command line for compiling assembly
+              from the Ethernut nutbld-release makefile:
+
+        arm-none-eabi-gcc 
+        -x assembler-with-cpp           // Unique to assembly 
+        -c                              // Present in pyMake
+        -I../../nutbld-release/include  // Provides tailored 'cfg'
+        -I../../nut/include             // Stock nut include
+        -DAT91SAM7X_EK                  // Present in toolchain  
+        -mcpu=arm7tdmi                  // Present in toolchain
+        -mthumb-interwork               // Present in toolchain 
+        -Os                             // Optional optimization
+        -Wall                           // Present in pyMake 
+        -Wstrict-prototypes             // Optional warning (kinda...)
+        -Werror                         // Present in pyMake 
+        -Wa,-a=arm/init/crtat91sam7x512_rom.lst         // Optional listing file
+        -o arm/init/crtat91sam7x512_rom.o               // Present in pyMake
+        ../../nut/arch/arm/init/crtat91sam7x512_rom.S   // Present in pyMake
+    """
+    def doCompile(self)-> Tuple[bool, bool]:
 
         # Assume we will not compile ANY source files.
         needLink:bool = False
@@ -1490,6 +1523,8 @@ class Build:
                         ccmd_inc += f' -I{include[0]}'
                     elif srcFile.type == FileType.CPPFILE and include[1] == 'cpp':
                         ccmd_inc += f' -I{include[0]}'
+                    elif srcFile.type == FileType.AFILE and include[1] == 'asm':
+                        ccmd_inc += f' -I{include[0]}'
                     else:
                         print(f'ERROR: Unknow language {include[1]} in <includes><path> element')
                         return False,False
@@ -1515,10 +1550,7 @@ class Build:
             elif srcFile.type == FileType.CFILE:
                 ccmd = f'{self.cfg.ccPrefix}gcc'
             else:
-                if assemblyUsesCpp:
-                    ccmd = f'{self.cfg.ccPrefix}g++'
-                else:
-                    ccmd = f'{self.cfg.ccPrefix}as'
+                ccmd = f'{self.cfg.ccPrefix}gcc -x assembler-with-cpp'
 
             # Add optimization and debugging options.
             if srcFile.optimization == None:
@@ -1600,7 +1632,7 @@ class Build:
             if self.singleFile is not None:
                 break
 
-        # Return with link yes/no.
+        # Return success, and if linking is needed.
         return True , needLink
 
     ###########################################################
@@ -1622,6 +1654,9 @@ class Build:
                 arcmd += ' -shared'
                 # Linker flags
                 for flag in self.cfg.flags.l:
+                    # Ignore if flag is 'nolink'.
+                    if 'nolink' in flag:
+                        continue
                     arcmd += f' {flag}'
                 arcmd += f' -o {self.configuration}/{self.cfg.artifactFullName}'
             else:
@@ -1632,6 +1667,9 @@ class Build:
             # Add compiled source files.
             src:SourceFile
             for src in self.cfg.sources:
+                # Ignore if src.flags.l[] has 'nolink'.
+                if 'nolink' in src.flags.l:
+                    continue
                 arcmd += f' {self.configuration}/src/{src.baseName}.o'
             # Add any other objets.
             for obj in self.cfg.objects:
@@ -1639,8 +1677,8 @@ class Build:
             # Execute archive command and show the work.
             print(f'\nCreating {self.cfg.artifactFullName}\n')
             print(arcmd)
-            result = os.system(arcmd)
             # Return failure if link error.
+            result = os.system(arcmd)
             return result
 
         ###########################################################
@@ -1713,6 +1751,9 @@ class Build:
         opList = self.root.findall('post_op')
         for op in opList:
             cmd = op.text
+            if cmd is None:
+                print('WARNING: <post_op> element has no command')
+                continue
             failed = False
             result = os.system(cmd)
             flag = op.get('result')

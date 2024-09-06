@@ -17,6 +17,10 @@ SortIncludes: false
 ColumnLimit: 128
 AllowAllParametersOfDeclarationOnNextLine: false
 BreakBeforeBraces: Custom
+PointerAlignment: Left
+AlignConsecutiveDeclarations: true
+# AlignConsecutiveAssignments: true
+AlignTrailingComments: true
 BraceWrapping:
   AfterStruct: false
   SplitEmptyFunction: false

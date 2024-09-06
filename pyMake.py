@@ -144,6 +144,16 @@ varSubDict:dict = {}
 gError:str = None
 
 ###############################################################
+# Return the filename has a valid extension.
+#
+def has_valid_extension(filename):
+    # Define the list of valid extensions
+    valid_extensions = ['.s', '.S', '.c', '.cc', '.cpp']
+    
+    # Check if the filename ends with any of the valid extensions
+    return any(filename.endswith(ext) for ext in valid_extensions)
+
+###############################################################
 # Return the string value of an element.
 #
 def eleToString(ele):
@@ -568,7 +578,7 @@ class SourceFile:
             self.type = FileType.AFILE
         elif self.path.endswith('c'):
             self.type = FileType.CFILE
-        elif self.path.endswith('cpp'):
+        elif self.path.endswith('cpp') or self.path.endswith('cc'):
             self.type = FileType.CPPFILE
         else:
             print(f'Invalid source file extension: {self.path}')
@@ -863,8 +873,8 @@ class Config:
                 wildList = os.listdir(pathBase)
                 # For each file in folder.
                 for wildName in wildList:
-                    # Limit to 'c', 'c++', and 's' files.
-                    if (wildName.endswith('.c')) or (wildName.endswith('.cpp')) or (wildName.endswith('.s') or (wildName.endswith('.S'))):
+                    # Limit to known source file types.
+                    if has_valid_extension(wildName):
                         # Ignore if in exclude list.
                         if wildName in excludeNames:
                             continue
@@ -1111,8 +1121,8 @@ class Build:
         self.prebuilds = prebuilds
         self.subs = subs
         if singleFile is not None:
-            if not singleFile.endswith('.s') and not singleFile.endswith('.c') and not singleFile.endswith('.cpp'):
-                print(f'Unable to compile {singleFile}: wrong file type, need .s,.c,.cpp')
+            if not has_valid_extension(singleFile):
+                print(f'Unable to compile {singleFile}: unsupported file type')
                 return
             # Set clean to force compile.
             self.makeClean = True
@@ -1566,6 +1576,11 @@ class Build:
             # All warnings, don't link.
             ccmd += ' -Wall -c'
 
+            # Add common C/C++ flags.
+            for define in self.cfg.flags.cc:
+                ccmd += f' {define}'
+            for define in srcFile.flags.cc:
+                ccmd += f' {define}'
             # If assembly file.
             if srcFile.type == FileType.AFILE:
                 for define in self.cfg.flags.a:
@@ -1574,18 +1589,13 @@ class Build:
                     ccmd += f' {define}'
             # Else C/C++.
             else:
-                # Add common C/C++ flags.
-                for define in self.cfg.flags.cc:
-                    ccmd += f' {define}'
-                for define in srcFile.flags.cc:
-                    ccmd += f' {define}'
-                # Add C flags.
+                # Add C specific flags.
                 if srcFile.type == FileType.CFILE:
                     for define in self.cfg.flags.c:
                         ccmd += f' {define}'
                     for define in srcFile.flags.c:
                         ccmd += f' {define}'
-                # Add C++ flags.
+                # Add C++ specific flags.
                 else:
                     for define in self.cfg.flags.cpp:
                         ccmd += f' {define}'

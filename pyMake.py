@@ -126,8 +126,14 @@ Revision History.
             Using gcc for assembly language files; the preprocessor
             can handle #include directives, etc.
 
+1.0.15      13-Sep-2024     RCW
+
+            Added 'artifact' and 'artifactFullName' to the variable substitution dictionary.
+            'artifactFullName' is the artifact name with extension.
+            Fixed missed substitution of {} in flags.
+
 """
-REVISION:str = '1.0.14'
+REVISION:str = '1.0.15'
 
 # If true, <objects> and <prebuilds> are read from within <configuration>,
 # otherwise at the <project> (root) level.
@@ -468,6 +474,36 @@ class Flags:
         for flag in eleList:
             if flag.text != None:
                 self.l.append(flag.text)
+
+    # Function called to check for variable substitution
+    # in the flags. It looks for any {} patterns in the
+    # flags and replaces them with the corresponding value
+    # from the dictionary.
+    def varSubFlags(self):
+        # Regular expression to find {var} patterns
+        var_pattern = re.compile(r'\{(\w+)\}')
+
+        def replace_value(value):
+            if isinstance(value, str):
+                # Find all {var} patterns in the string
+                matches = var_pattern.findall(value)
+                for match in matches:
+                    # Replace {var} with the corresponding value from the dictionary
+                    if match in varSubDict:
+                        value = value.replace(f'{{{match}}}', varSubDict[match])
+            return value
+
+        # Iterate over each flag.
+        for i in range(len(self.a)):
+            self.a[i] = replace_value(self.a[i])
+        for i in range(len(self.c)):
+            self.c[i] = replace_value(self.c[i])
+        for i in range(len(self.cc)):
+            self.cc[i] = replace_value(self.cc[i])
+        for i in range(len(self.cpp)):
+            self.cpp[i] = replace_value(self.cpp[i])
+        for i in range(len(self.l)):
+            self.l[i] = replace_value(self.l[i])
 
 ###############################################################
 # Child projects to pre-build.
@@ -1135,6 +1171,9 @@ class Build:
         varSubDict['config'] = self.configuration
         # Will be defined after the toolchain is added.
         varSubDict['ccprefix'] = '_undefined_'
+        # Will be defined after the configuration is added.
+        varSubDict['artifact'] = '_undefined_'
+        varSubDict['artifactFullName'] = '_undefined_'
 
         # Add command line key:value pairs to variable substitution.
         for kvp in subs:
@@ -1283,7 +1322,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme1.xml' , pretty_print=True)
 
         # Now look for <group> elments.
         # All <group> elements must have an 'if' conditional.
@@ -1316,7 +1355,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme2.xml' , pretty_print=True)
 
         # Get the <configuration> and <toolchain> elements
         # for this project. Non-matching elements will be
@@ -1327,7 +1366,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme3.xml' , pretty_print=True)
         
         #######################################################
         # At this point, the XML files have all been processed
@@ -1362,7 +1401,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme4.xml' , pretty_print=True)
 
         # We have all the <dict> elments resolved.
         # Now we need to recursively traverse the XML file
@@ -1378,7 +1417,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme5.xml' , pretty_print=True)
 
         # Recursively process 'if' attribute logic for all elements.
         # We rename all tags as <culled> that have an 'if'
@@ -1391,7 +1430,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme6.xml' , pretty_print=True)
 
         # At this point, the XML file is complete with all
         # included files and <dict> values evaluated.
@@ -1421,6 +1460,12 @@ class Build:
         # Assign any <dict> values that are 'undefined'
         #######################################################
         varSubDict['ccprefix'] = self.cfg.ccPrefix
+        varSubDict['artifact'] = self.cfg.artifact
+        varSubDict['artifactFullName'] = self.cfg.artifactFullName
+        
+        # Discovered that {} in the flags haven't been replaced.
+        # Here we call varSubFlags() to replace them.
+        self.cfg.flags.varSubFlags()
 
         # Do final substitution all must be defined.
         try:
@@ -1431,7 +1476,7 @@ class Build:
         
         # Show the work.
         if printIntermediateXml:
-            tree.write('eraseme.xml' , pretty_print=True)
+            tree.write('eraseme7.xml' , pretty_print=True)
 
         # Success.
         self.initialized = True

@@ -39,6 +39,8 @@ The main features of pyMake are:
 
 NOTE: You need Python 3.8 or later to run pyMake.py.
 
+PyMake needs the python library 'lxml'; install it with "pip install lxml".
+
 You should copy pyMake.py to a folder in your $PATH environment variable and  
 make it executable; /usr/local/bin is a good choice.
 
